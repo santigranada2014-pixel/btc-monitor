@@ -10,7 +10,7 @@
 <meta name="theme-color" content="#1D9E75">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>BTC Monitor</title>
+<title>BTC Monitor v2</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -34,7 +34,7 @@
     --warn-bg: #2e2510; --warn-text: #FAC775;
   }
 }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; padding-bottom: env(safe-area-inset-bottom); }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); padding-bottom: env(safe-area-inset-bottom); }
 .container { max-width: 960px; margin: 0 auto; padding: 16px 14px; }
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
 .header h1 { font-size: 18px; font-weight: 700; }
@@ -42,21 +42,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .tf-btn { font-size: 13px; padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; font-weight: 500; }
 .tf-btn.active { background: var(--bg2); color: var(--text); }
 .btn { font-size: 13px; padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--bg); color: var(--text); cursor: pointer; }
-.btn:active { opacity: .7; }
 .btn-notif { font-size: 13px; padding: 6px 14px; border-radius: var(--radius); border: none; cursor: pointer; font-weight: 600; }
 .btn-notif.off { background: var(--green-bg); color: var(--green-text); }
 .btn-notif.on  { background: var(--bg2); color: var(--text2); }
 .src-badge { font-size: 11px; padding: 3px 9px; border-radius: var(--radius); font-weight: 600; }
 .src-live { background: var(--green-bg); color: var(--green-text); }
 .src-demo { background: var(--warn-bg); color: var(--warn-text); }
+.v2-badge { font-size: 10px; padding: 2px 7px; border-radius: var(--radius); font-weight: 700; background: var(--blue); color: white; }
 
-/* Install banner */
-.install-banner { display: none; background: var(--blue); color: #fff; border-radius: var(--radius-lg); padding: 12px 16px; margin-bottom: 12px; font-size: 13px; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.install-banner.show { display: flex; }
-.install-banner button { background: white; color: var(--blue); border: none; border-radius: var(--radius); padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
-
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
-@media (max-width: 600px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+.metrics { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 12px; }
+@media (max-width:600px) { .metrics { grid-template-columns: repeat(2,1fr); } }
 .metric { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px; }
 .metric-label { font-size: 10px; color: var(--text2); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .04em; }
 .metric-value { font-size: 16px; font-weight: 700; }
@@ -70,13 +65,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 .card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 12px; }
 .card-title { font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
-
 .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
 .chart-label { font-size: 11px; color: var(--text2); }
 .ema-toggles { display: flex; gap: 12px; }
 .ema-toggles label { font-size: 12px; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 4px; }
 .chart-wrap { position: relative; }
-.tooltip-box { position: absolute; top: 36px; left: 60px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 7px 10px; font-size: 12px; pointer-events: none; z-index: 9; display: none; line-height: 1.7; }
+.ttp { position: absolute; top: 36px; left: 60px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 7px 10px; font-size: 12px; pointer-events: none; z-index: 9; display: none; line-height: 1.7; }
 canvas { width: 100% !important; display: block; }
 
 .macd-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -84,18 +78,16 @@ canvas { width: 100% !important; display: block; }
 .macd-stat b { color: var(--text); }
 
 .cl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-@media (max-width: 500px) { .cl-grid { grid-template-columns: 1fr; } }
+@media (max-width:500px) { .cl-grid { grid-template-columns: 1fr; } }
 .cl-col { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px; }
 .cl-col-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
 .cl-sec { margin-bottom: 8px; }
 .cl-sec-name { font-size: 10px; color: var(--text2); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
 .cl-item { display: flex; align-items: flex-start; gap: 6px; padding: 3px 0; }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-.dok { background: var(--green); }
-.dno { background: var(--red); opacity: .5; }
+.dok { background: var(--green); } .dno { background: var(--red); opacity: .5; }
 .cl-item span { font-size: 12px; line-height: 1.4; }
-.ok-t { color: var(--green-text); }
-.no-t { color: var(--text2); }
+.ok-t { color: var(--green-text); } .no-t { color: var(--text2); }
 .bar-bg { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin: 8px 0 4px; }
 .bar-fill { height: 5px; border-radius: 3px; transition: width .4s; }
 .score-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); }
@@ -113,28 +105,23 @@ canvas { width: 100% !important; display: block; }
 .bdg { font-size: 12px; padding: 3px 9px; border-radius: var(--radius); font-weight: 700; }
 .bdg-l { background: var(--green-bg); color: var(--green-text); }
 .bdg-s { background: var(--red-bg); color: var(--red-text); }
-
-.notif-status { font-size: 12px; color: var(--text2); margin-top: 6px; }
 .footer { text-align: center; font-size: 11px; color: var(--text3); margin-top: 6px; padding-bottom: 20px; }
 </style>
 </head>
 <body>
 <div class="container">
 
-  <!-- Install banner (shows on mobile when not installed) -->
-  <div class="install-banner" id="install-banner">
-    <span>📲 Instalá esta app en tu celular para recibir notificaciones en segundo plano</span>
-    <button onclick="installApp()">Instalar</button>
-  </div>
-
   <div class="header">
-    <h1>₿ BTC Monitor</h1>
+    <div style="display:flex;align-items:center;gap:8px">
+      <h1>₿ BTC Monitor</h1>
+      <span class="v2-badge">v2</span>
+    </div>
     <div class="header-right">
       <span id="src-badge" class="src-badge src-demo">demo</span>
       <button class="tf-btn active" id="tf-1h" onclick="setTF('1h')">1H</button>
       <button class="tf-btn" id="tf-4h" onclick="setTF('4h')">4H</button>
       <button class="btn" onclick="load()">↻</button>
-      <button class="btn-notif off" id="notif-btn" onclick="toggleNotifications()">🔔 Activar alertas</button>
+      <button class="btn-notif off" id="notif-btn" onclick="toggleNotifications()">🔔 Alertas</button>
     </div>
   </div>
 
@@ -159,7 +146,7 @@ canvas { width: 100% !important; display: block; }
       </div>
     </div>
     <div class="chart-wrap">
-      <div class="tooltip-box" id="ttp"></div>
+      <div class="ttp" id="ttp"></div>
       <canvas id="cc" height="220"></canvas>
     </div>
   </div>
@@ -175,14 +162,8 @@ canvas { width: 100% !important; display: block; }
   </div>
 
   <div class="cl-grid">
-    <div class="cl-col" id="cll">
-      <div class="cl-col-title" style="color:var(--green-text)">▲ Checklist LONG</div>
-      <div style="color:var(--text2);font-size:13px">Cargando...</div>
-    </div>
-    <div class="cl-col" id="cls">
-      <div class="cl-col-title" style="color:var(--red-text)">▼ Checklist SHORT</div>
-      <div style="color:var(--text2);font-size:13px">Cargando...</div>
-    </div>
+    <div class="cl-col" id="cll"><div class="cl-col-title" style="color:var(--green-text)">▲ Checklist LONG</div><div style="color:var(--text2);font-size:13px">Cargando...</div></div>
+    <div class="cl-col" id="cls"><div class="cl-col-title" style="color:var(--red-text)">▼ Checklist SHORT</div><div style="color:var(--text2);font-size:13px">Cargando...</div></div>
   </div>
 
   <div class="card">
@@ -201,7 +182,7 @@ canvas { width: 100% !important; display: block; }
     <div id="hl"><div style="font-size:13px;color:var(--text2)">Sin alertas aún — revisión cada 2 minutos</div></div>
   </div>
 
-  <div class="footer">Datos: Binance API · Solo referencia, no asesoramiento financiero</div>
+  <div class="footer">Datos: Binance API · Algoritmo v2 mejorado · Solo referencia, no asesoramiento financiero</div>
 </div>
 
 <script>
@@ -209,81 +190,27 @@ canvas { width: 100% !important; display: block; }
 let MC = null, D1 = [], D4 = [], SR = [], TF = '1h';
 let price = 0, alertHist = [], lastKey = '', tick = 120, tickI = null;
 let swReg = null, notifActive = false;
-let deferredPrompt = null;
 
 const fmt = n => Math.round(n).toLocaleString('en-US');
 
-// ── PWA Install ───────────────────────────────────────
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  // Show banner only if not already installed
-  if (!window.matchMedia('(display-mode: standalone)').matches) {
-    document.getElementById('install-banner').classList.add('show');
-  }
-});
-
-function installApp() {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(() => {
-    deferredPrompt = null;
-    document.getElementById('install-banner').classList.remove('show');
-  });
-}
-
-window.addEventListener('appinstalled', () => {
-  document.getElementById('install-banner').classList.remove('show');
-});
-
-// ── Service Worker ────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').then(reg => {
-    swReg = reg;
-    console.log('SW registrado');
-  }).catch(e => console.warn('SW error:', e));
+  navigator.serviceWorker.register('sw.js').then(reg => { swReg = reg; }).catch(() => {});
 }
 
-// ── Notifications ─────────────────────────────────────
 async function toggleNotifications() {
   const btn = document.getElementById('notif-btn');
   if (notifActive) {
-    // Turn off
     notifActive = false;
-    btn.textContent = '🔔 Activar alertas';
-    btn.className = 'btn-notif off';
+    btn.textContent = '🔔 Alertas'; btn.className = 'btn-notif off';
     if (swReg && swReg.active) swReg.active.postMessage({ type: 'STOP_MONITORING' });
     return;
   }
-  // Request permission
-  if (!('Notification' in window)) {
-    alert('Tu browser no soporta notificaciones. Instalá la app primero.');
-    return;
-  }
+  if (!('Notification' in window)) { alert('Tu browser no soporta notificaciones.'); return; }
   const perm = await Notification.requestPermission();
-  if (perm !== 'granted') {
-    alert('Permiso de notificaciones denegado. Habilitalo en la configuración del browser.');
-    return;
-  }
+  if (perm !== 'granted') { alert('Permiso denegado. Habilitalo en configuración.'); return; }
   notifActive = true;
-  btn.textContent = '🔕 Alertas activas';
-  btn.className = 'btn-notif on';
-  // Tell SW to start monitoring
-  if (swReg && swReg.active) {
-    swReg.active.postMessage({ type: 'START_MONITORING', tf: TF, srLevels: SR });
-  }
-  // Also show a test notification
-  new Notification('✅ BTC Monitor activado', {
-    body: 'Vas a recibir alertas cuando haya señal LONG o SHORT.',
-    icon: 'icon-192.png'
-  });
-}
-
-// Update SW when SR levels change
-function syncSWState() {
-  if (swReg && swReg.active && notifActive) {
-    swReg.active.postMessage({ type: 'UPDATE_SR', srLevels: SR });
-  }
+  btn.textContent = '🔕 Alertas ON'; btn.className = 'btn-notif on';
+  new Notification('✅ BTC Monitor v2 activado', { body: 'Vas a recibir alertas con el algoritmo mejorado.', icon: 'icon-192.png' });
 }
 
 // ── Indicators ────────────────────────────────────────
@@ -307,6 +234,138 @@ function calcMACD(cls) {
   return { ml, sig, hist };
 }
 
+// ── v2 Improved Checklist ─────────────────────────────
+function buildChecklist(src, src4h) {
+  const n = src.length;
+  if (n < 26) return null;
+  const i = n - 1;
+  const last = src[i];
+  const window10 = src.slice(Math.max(0, i - 9), i + 1);
+  const highs10 = window10.map(c => c.h);
+  const lows10 = window10.map(c => c.l);
+  const closes = src.map(c => c.c);
+  const vols = src.map(c => c.v || 0);
+  const { ml, sig, hist: ht } = calcMACD(closes);
+  const e14 = ema(closes, 14), e21 = ema(closes, 21);
+
+  const h4 = src4h.filter(c => c.t <= last.t).slice(-10);
+  const tUp4h = h4.length >= 4 && h4[h4.length-1].c > h4[0].c && h4[h4.length-1].l > h4[Math.floor(h4.length/2)].l;
+  const tDn4h = h4.length >= 4 && h4[h4.length-1].c < h4[0].c && h4[h4.length-1].h < h4[Math.floor(h4.length/2)].h;
+
+  const windowLows = lows10.slice(0, -2), windowHighs = highs10.slice(0, -2);
+  const minLow = Math.min(...windowLows), maxHigh = Math.max(...windowHighs);
+  const isHL = last.l > minLow && last.l > src[i-1].l;
+  const isHH = last.h > maxHigh;
+  const isLH = last.h < maxHigh && last.h < src[i-1].h;
+  const isLL = last.l < minLow;
+  const recentH = highs10.slice(-5), recentL = lows10.slice(-5);
+  const tUp10 = recentH[recentH.length-1] > recentH[0] && recentL[recentL.length-1] > recentL[0];
+  const tDn10 = recentH[recentH.length-1] < recentH[0] && recentL[recentL.length-1] < recentL[0];
+
+  const bull = last.c >= last.o, bear = last.c < last.o;
+  const body = Math.abs(last.c - last.o), rng = last.h - last.l || 1;
+  const lwk = Math.min(last.c, last.o) - last.l, uwk = last.h - Math.max(last.c, last.o);
+  const hammer = lwk > body * 2 && bull && body / rng > 0.15;
+  const star = uwk > body * 2 && bear && body / rng > 0.15;
+  const strongBull = bull && body / rng > 0.65;
+  const strongBear = bear && body / rng > 0.65;
+
+  const e14v = e14[i], e21v = e21[i];
+  const aboveEMA = e14v && e21v && last.c > e14v && last.c > e21v;
+  const belowEMA = e14v && e21v && last.c < e14v && last.c < e21v;
+  const sl14u = e14[i] && e14[i-3] && e14[i] > e14[i-3];
+  const sl14d = e14[i] && e14[i-3] && e14[i] < e14[i-3];
+  const sl21u = e21[i] && e21[i-3] && e21[i] > e21[i-3];
+  const sl21d = e21[i] && e21[i-3] && e21[i] < e21[i-3];
+
+  // Confirmed MACD cross (2 candles)
+  const xUp = i >= 2 && ml[i] != null && sig[i] != null && ml[i-1] != null && sig[i-1] != null && ml[i-2] != null && sig[i-2] != null && ml[i-2] < sig[i-2] && ml[i-1] > sig[i-1] && ml[i] > sig[i];
+  const xDn = i >= 2 && ml[i] != null && sig[i] != null && ml[i-1] != null && sig[i-1] != null && ml[i-2] != null && sig[i-2] != null && ml[i-2] > sig[i-2] && ml[i-1] < sig[i-1] && ml[i] < sig[i];
+  const histGreen = ht[i] != null && ht[i] > 0;
+  const histGrow = ht[i] != null && ht[i-1] != null && ht[i] > ht[i-1];
+  const histRed = ht[i] != null && ht[i] < 0;
+  const histRedGrow = ht[i] != null && ht[i-1] != null && ht[i] < ht[i-1];
+
+  // Volume vs 50-candle avg
+  const vol50 = vols.slice(-50);
+  const avgVol50 = vol50.reduce((a, b) => a + b, 0) / vol50.length;
+  const volSurge = vols[i] > avgVol50 * 1.3;
+
+  // S/R from manual levels
+  const nearSup = SR.find(s => s.t === 'sup' && Math.abs(s.p - last.c) / last.c < 0.018);
+  const nearRes = SR.find(s => s.t === 'res' && Math.abs(s.p - last.c) / last.c < 0.018);
+  const retestSup = SR.find(s => s.t === 'sup' && last.l <= s.p * 1.008 && last.c > s.p);
+  const retestRes = SR.find(s => s.t === 'res' && last.h >= s.p * 0.992 && last.c < s.p);
+
+  const LONG = {
+    '1. Estructura': [
+      { l: 'HL confirmado (10 velas)', ok: isHL },
+      { l: 'HH o tendencia alcista', ok: isHH || tUp4h || tUp10 },
+      { l: 'TF mayor no bajista', ok: !tDn4h && !tDn10 },
+    ],
+    '2. Nivel': [
+      { l: 'En soporte o R. rota', ok: !!nearSup || !!retestSup },
+      { l: 'Retest del nivel', ok: !!retestSup },
+      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'sup') },
+    ],
+    '3. Vela': [
+      { l: 'Mecha inferior (2x cuerpo)', ok: hammer },
+      { l: 'Vela alcista fuerte (65%)', ok: strongBull },
+      { l: 'Cerró encima del nivel', ok: !!(nearSup && last.c > nearSup.p) },
+    ],
+    '4. EMAs 14/21': [
+      { l: 'Precio encima de EMA 14 y 21', ok: !!aboveEMA },
+      { l: 'EMAs inclinadas hacia arriba', ok: sl14u && sl21u },
+      { l: 'EMAs no abiertas hacia abajo', ok: !(sl14d && sl21d) },
+    ],
+    '5. MACD': [
+      { l: 'Cruce confirmado (2 velas)', ok: xUp },
+      { l: 'Histograma verde', ok: histGreen },
+      { l: 'Momentum aumentando', ok: histGrow },
+    ],
+    '6. Volumen': [
+      { l: 'Volumen > promedio 50 velas', ok: volSurge },
+    ],
+  };
+
+  const SHORT = {
+    '1. Estructura': [
+      { l: 'LH confirmado (10 velas)', ok: isLH },
+      { l: 'LL o tendencia bajista', ok: isLL || tDn4h || tDn10 },
+      { l: 'Tendencia 4H bajista', ok: tDn4h },
+    ],
+    '2. Nivel': [
+      { l: 'En resistencia fuerte', ok: !!nearRes },
+      { l: 'Retest soporte roto', ok: !!retestRes },
+      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'res') },
+    ],
+    '3. Vela': [
+      { l: 'Mecha superior (2x cuerpo)', ok: star },
+      { l: 'Vela bajista fuerte (65%)', ok: strongBear },
+      { l: 'Cerró debajo del nivel', ok: !!(nearRes && last.c < nearRes.p) },
+    ],
+    '4. EMAs 14/21': [
+      { l: 'Precio debajo de EMA 14 y 21', ok: !!belowEMA },
+      { l: 'EMAs inclinadas hacia abajo', ok: sl14d && sl21d },
+    ],
+    '5. MACD': [
+      { l: 'Cruce bajista confirmado', ok: xDn },
+      { l: 'Histograma rojo creciendo', ok: histRed && histRedGrow },
+    ],
+    '6. Volumen': [
+      { l: 'Volumen > promedio 50 velas', ok: volSurge && bear },
+    ],
+  };
+
+  return { LONG, SHORT };
+}
+
+function score(cl) {
+  let ok = 0, total = 0;
+  Object.values(cl).forEach(items => items.forEach(it => { total++; if (it.ok) ok++; }));
+  return { ok, total, pct: Math.round(ok / total * 100) };
+}
+
 // ── Fetch ─────────────────────────────────────────────
 async function load() {
   setAlert('wait', '⏳ Conectando...', 'Obteniendo velas de Binance');
@@ -327,7 +386,7 @@ async function load() {
   } catch (e) {
     document.getElementById('src-badge').textContent = '⚠ demo';
     document.getElementById('src-badge').className = 'src-badge src-demo';
-    setAlert('wait', '⚠️ Sin conexión a Binance', 'Verificá tu internet. Usando datos de demostración.');
+    setAlert('wait', '⚠️ Sin conexión a Binance', 'Verificá tu internet.');
     mock(); analyze(); redraw();
   }
   startTick();
@@ -339,36 +398,34 @@ function mock() {
     for (let i = n; i >= 0; i--) {
       const ch = (Math.random() - .47) * 1400;
       const o = p, c = +(p + ch).toFixed(0);
-      a.push({ t: Date.now() - i * ms, o, h: +(Math.max(o, c) + Math.random() * 500).toFixed(0), l: +(Math.min(o, c) - Math.random() * 500).toFixed(0), c, v: 500 + Math.random() * 2000 });
+      a.push({ t: Date.now() - i * ms, o, h: +(Math.max(o,c) + Math.random()*500).toFixed(0), l: +(Math.min(o,c) - Math.random()*500).toFixed(0), c, v: 500 + Math.random()*2000 });
       p = c;
     }
     return a;
   };
   D1 = gen(99, 3600000); D4 = gen(99, 14400000);
-  price = D1[D1.length - 1].c;
+  price = D1[D1.length-1].c;
   document.getElementById('mp').textContent = '$' + fmt(price) + ' (demo)';
 }
 
-// ── Analysis ──────────────────────────────────────────
 function analyze() {
   const src = TF === '1h' ? D1 : D4;
-  if (src.length < 30) return;
-  const n = src.length, last = src[n-1], prev = src[n-2], p2 = src[n-3] || prev;
-  const closes = src.map(c => c.c), vols = src.map(c => c.v || 0);
-  const { ml, sig, hist: ht } = calcMACD(closes);
-  const i = n - 1;
-  const e14 = ema(closes, 14), e21 = ema(closes, 21);
+  if (src.length < 26) return;
 
+  const last = src[src.length-1];
   const bull = last.c >= last.o, bear = last.c < last.o;
   document.getElementById('mc').textContent = bull ? '▲ Alcista' : '▼ Bajista';
   document.getElementById('mc').style.color = bull ? 'var(--green)' : 'var(--red)';
 
-  const h4 = D4.length >= 8 ? D4.slice(-8) : D4;
-  const tUp = h4[h4.length-1].c > h4[0].c && h4[h4.length-1].l > h4[0].l;
-  const tDn = h4[h4.length-1].c < h4[0].c && h4[h4.length-1].h < h4[0].h;
+  const h4 = D4.length >= 8 ? D4.slice(-10) : D4;
+  const tUp = h4.length >= 4 && h4[h4.length-1].c > h4[0].c && h4[h4.length-1].l > h4[Math.floor(h4.length/2)].l;
+  const tDn = h4.length >= 4 && h4[h4.length-1].c < h4[0].c && h4[h4.length-1].h < h4[Math.floor(h4.length/2)].h;
   document.getElementById('mt').textContent = tUp ? '▲ Alcista' : tDn ? '▼ Bajista' : '— Lateral';
   document.getElementById('mt').style.color = tUp ? 'var(--green)' : tDn ? 'var(--red)' : 'var(--text2)';
 
+  const closes = src.map(c => c.c);
+  const { ml, sig, hist: ht } = calcMACD(closes);
+  const i = src.length - 1;
   const mv = ml[i], sv2 = sig[i], hv = ht[i], hp = ht[i-1];
   if (mv != null) {
     document.getElementById('mv').textContent = mv;
@@ -384,117 +441,25 @@ function analyze() {
     document.getElementById('mstate').textContent = st;
   }
 
-  const isHL = last.l > p2.l, isHH = last.h > prev.h;
-  const isLH = last.h < prev.h, isLL = last.l < prev.l;
-  const nearSup = SR.find(s => s.t === 'sup' && Math.abs(s.p - last.c) / last.c < 0.018);
-  const nearRes = SR.find(s => s.t === 'res' && Math.abs(s.p - last.c) / last.c < 0.018);
-  const retestSup = SR.find(s => s.t === 'sup' && last.l <= s.p * 1.008 && last.c > s.p);
-  const retestRes = SR.find(s => s.t === 'res' && last.h >= s.p * 0.992 && last.c < s.p);
-  const body = Math.abs(last.c - last.o), rng = last.h - last.l || 1;
-  const lwk = Math.min(last.c, last.o) - last.l, uwk = last.h - Math.max(last.c, last.o);
-  const hammer = lwk > body * 1.5 && bull;
-  const star = uwk > body * 1.5 && bear;
-  const strongBull = bull && body / rng > 0.55;
-  const strongBear = bear && body / rng > 0.55;
-  const e14v = e14[i], e21v = e21[i];
-  const aboveEMA = e14v && e21v && last.c > e14v && last.c > e21v;
-  const belowEMA = e14v && e21v && last.c < e14v && last.c < e21v;
-  const sl14u = e14[i] && e14[i-3] && e14[i] > e14[i-3];
-  const sl14d = e14[i] && e14[i-3] && e14[i] < e14[i-3];
-  const sl21u = e21[i] && e21[i-3] && e21[i] > e21[i-3];
-  const sl21d = e21[i] && e21[i-3] && e21[i] < e21[i-3];
-  const xUp = ml[i] != null && sig[i] != null && ml[i-1] != null && sig[i-1] != null && ml[i-1] < sig[i-1] && ml[i] > sig[i];
-  const xDn = ml[i] != null && sig[i] != null && ml[i-1] != null && sig[i-1] != null && ml[i-1] > sig[i-1] && ml[i] < sig[i];
-  const histGreen = ht[i] != null && ht[i] > 0;
-  const histGrow = ht[i] != null && ht[i-1] != null && ht[i] > ht[i-1];
-  const histRed = ht[i] != null && ht[i] < 0;
-  const histRedGrow = ht[i] != null && ht[i-1] != null && ht[i] < ht[i-1];
-  const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
-  const volSurge = vols[i] > avgVol * 1.2;
-
-  const LONG = {
-    '1. Estructura': [
-      { l: 'HL (Higher Low)', ok: isHL },
-      { l: 'HH roto o tendencia ↑', ok: isHH || tUp },
-      { l: 'TF mayor no bajista', ok: !tDn },
-    ],
-    '2. Nivel': [
-      { l: 'En soporte o resistencia rota', ok: !!nearSup || !!retestSup },
-      { l: 'Retest del nivel', ok: !!retestSup },
-      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'sup') },
-    ],
-    '3. Vela': [
-      { l: 'Mecha inferior (rechazo)', ok: hammer },
-      { l: 'Vela alcista fuerte', ok: strongBull },
-      { l: 'Cerró encima del nivel', ok: !!(nearSup && last.c > nearSup.p) },
-    ],
-    '4. EMAs 14/21': [
-      { l: 'Precio encima de EMA 14 y 21', ok: !!aboveEMA },
-      { l: 'EMAs inclinadas hacia arriba', ok: sl14u && sl21u },
-      { l: 'EMAs no abiertas hacia abajo', ok: !(sl14d && sl21d) },
-    ],
-    '5. MACD': [
-      { l: 'Cruce hacia arriba', ok: xUp },
-      { l: 'Histograma pasó a verde', ok: histGreen },
-      { l: 'Momentum aumentando', ok: histGrow },
-    ],
-    '6. Volumen': [
-      { l: 'Volumen mayor al promedio', ok: volSurge },
-    ],
-  };
-
-  const SHORT = {
-    '1. Estructura': [
-      { l: 'LH (Lower High)', ok: isLH },
-      { l: 'LL roto o tendencia ↓', ok: isLL || tDn },
-      { l: 'Tendencia 4H bajista', ok: tDn },
-    ],
-    '2. Nivel': [
-      { l: 'En resistencia fuerte', ok: !!nearRes },
-      { l: 'Retest de soporte roto', ok: !!retestRes },
-      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'res') },
-    ],
-    '3. Vela': [
-      { l: 'Mecha superior (rechazo)', ok: star },
-      { l: 'Vela bajista fuerte', ok: strongBear },
-      { l: 'Cerró debajo del nivel', ok: !!(nearRes && last.c < nearRes.p) },
-    ],
-    '4. EMAs 14/21': [
-      { l: 'Precio debajo de EMA 14 y 21', ok: !!belowEMA },
-      { l: 'EMAs inclinadas hacia abajo', ok: sl14d && sl21d },
-    ],
-    '5. MACD': [
-      { l: 'Cruce hacia abajo', ok: xDn },
-      { l: 'Histograma rojo creciendo', ok: histRed && histRedGrow },
-    ],
-    '6. Volumen': [
-      { l: 'Volumen aumenta en la caída', ok: volSurge && bear },
-    ],
-  };
-
-  const ls = score(LONG), ss = score(SHORT);
-  renderCL('cll', '▲ Checklist LONG', LONG, ls, 'var(--green)', 'var(--green-text)');
-  renderCL('cls', '▼ Checklist SHORT', SHORT, ss, 'var(--red)', 'var(--red-text)');
+  const cl = buildChecklist(src, D4);
+  if (!cl) return;
+  const ls = score(cl.LONG), ss = score(cl.SHORT);
+  renderCL('cll', '▲ Checklist LONG', cl.LONG, ls, 'var(--green)', 'var(--green-text)');
+  renderCL('cls', '▼ Checklist SHORT', cl.SHORT, ss, 'var(--red)', 'var(--red-text)');
 
   if (ls.pct >= 70 && ls.pct >= ss.pct) {
-    setAlert('long', '🟢 POSIBLE ENTRADA LONG — $' + fmt(price), ls.ok + '/' + ls.total + ' condiciones (' + ls.pct + '%) · Verificá en Binance antes de entrar');
+    setAlert('long', '🟢 POSIBLE LONG — $' + fmt(price), ls.ok + '/' + ls.total + ' condiciones (' + ls.pct + '%) · Verificá en Binance');
     push('LONG', ls, price);
   } else if (ss.pct >= 70) {
-    setAlert('short', '🔴 POSIBLE ENTRADA SHORT — $' + fmt(price), ss.ok + '/' + ss.total + ' condiciones (' + ss.pct + '%) · Verificá en Binance antes de entrar');
+    setAlert('short', '🔴 POSIBLE SHORT — $' + fmt(price), ss.ok + '/' + ss.total + ' condiciones (' + ss.pct + '%) · Verificá en Binance');
     push('SHORT', ss, price);
   } else if (ls.pct >= 50) {
     setAlert('wait', '🟡 Setup LONG en formación — $' + fmt(price), ls.ok + '/' + ls.total + ' cond. (' + ls.pct + '%) · Esperá confirmación');
   } else if (ss.pct >= 50) {
     setAlert('wait', '🟡 Setup SHORT en formación — $' + fmt(price), ss.ok + '/' + ss.total + ' cond. (' + ss.pct + '%) · Esperá confirmación');
   } else {
-    setAlert('wait', '⏳ Sin setup claro — $' + fmt(price), 'LONG: ' + ls.pct + '%   SHORT: ' + ss.pct + '%');
+    setAlert('wait', '⏳ Sin setup — $' + fmt(price), 'LONG: ' + ls.pct + '%  SHORT: ' + ss.pct + '%');
   }
-}
-
-function score(cl) {
-  let ok = 0, total = 0;
-  Object.values(cl).forEach(items => items.forEach(it => { total++; if (it.ok) ok++; }));
-  return { ok, total, pct: Math.round(ok / total * 100) };
 }
 
 function renderCL(id, title, cl, sc, color, textColor) {
@@ -523,25 +488,16 @@ function push(side, sc, p) {
   if (alertHist.length > 10) alertHist.pop();
   document.getElementById('hl').innerHTML = alertHist.map(a => `<div class="hist-row">
     <div style="display:flex;gap:10px;align-items:center">
-      <span class="bdg ${a.side === 'LONG' ? 'bdg-l' : 'bdg-s'}">${a.side === 'LONG' ? '▲' : '▼'} ${a.side}</span>
+      <span class="bdg ${a.side==='LONG'?'bdg-l':'bdg-s'}">${a.side==='LONG'?'▲':'▼'} ${a.side}</span>
       <span>$${fmt(a.p)}</span>
       <span style="color:var(--text2)">${a.sc.ok}/${a.sc.total} cond.</span>
     </div>
     <span style="color:var(--text2)">${a.now}</span>
   </div>`).join('');
-
-  // Notify via SW if active
-  if (notifActive && swReg && swReg.active) {
-    swReg.active.postMessage({ type: 'START_MONITORING', tf: TF, srLevels: SR });
-  }
-  // Also direct notification if app is open
   if (notifActive && Notification.permission === 'granted') {
-    const isLong = side === 'LONG';
-    new Notification(isLong ? '🟢 Señal LONG — BTC' : '🔴 Señal SHORT — BTC', {
+    new Notification(side === 'LONG' ? '🟢 Señal LONG — BTC' : '🔴 Señal SHORT — BTC', {
       body: `$${fmt(p)} · ${sc.ok}/${sc.total} condiciones (${sc.pct}%) · Verificá en Binance`,
-      icon: 'icon-192.png',
-      tag: 'btc-signal',
-      renotify: true
+      icon: 'icon-192.png', tag: 'btc-signal', renotify: true
     });
   }
 }
@@ -550,7 +506,7 @@ function push(side, sc, p) {
 function redraw() {
   const src = TF === '1h' ? D1 : D4;
   if (!src.length) return;
-  document.getElementById('clabel').textContent = `Velas BTC ${TF.toUpperCase()} (${src.length} velas)`;
+  document.getElementById('clabel').textContent = `Velas BTC ${TF.toUpperCase()}`;
   drawCandles(src);
   const { ml, sig, hist } = calcMACD(src.map(c => c.c));
   drawMACD(src, ml, sig, hist);
@@ -558,8 +514,7 @@ function redraw() {
 
 function drawCandles(src) {
   const cv = document.getElementById('cc');
-  cv.width = cv.parentElement.clientWidth;
-  cv.height = 220;
+  cv.width = cv.parentElement.clientWidth; cv.height = 220;
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height, pL = 66, pR = 12, pT = 10, pB = 24;
   const cW = W - pL - pR, cH = H - pT - pB;
@@ -576,105 +531,101 @@ function drawCandles(src) {
   const gc = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
   ctx.clearRect(0, 0, W, H);
   for (let k = 0; k <= 5; k++) {
-    const p = minP + rng * (k / 5), y = pY(p);
+    const p = minP + rng*(k/5), y = pY(p);
     ctx.strokeStyle = gc; ctx.lineWidth = .5;
-    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(W - pR, y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(W-pR, y); ctx.stroke();
     ctx.fillStyle = tc; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
-    ctx.fillText('$' + fmt(p), pL - 4, y + 3);
+    ctx.fillText('$'+fmt(p), pL-4, y+3);
   }
   SR.forEach(s => {
-    const y = pY(s.p); if (y < pT - 10 || y > pT + cH + 10) return;
-    ctx.strokeStyle = s.t === 'sup' ? 'rgba(29,158,117,.75)' : 'rgba(216,90,48,.75)';
-    ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
-    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(W - pR, y); ctx.stroke();
+    const y = pY(s.p); if (y < pT-10 || y > pT+cH+10) return;
+    ctx.strokeStyle = s.t==='sup' ? 'rgba(29,158,117,.75)' : 'rgba(216,90,48,.75)';
+    ctx.lineWidth = 1.5; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(W-pR,y); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = s.t === 'sup' ? '#1D9E75' : '#D85A30';
+    ctx.fillStyle = s.t==='sup' ? '#1D9E75' : '#D85A30';
     ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText((s.t === 'sup' ? 'S ' : 'R ') + '$' + fmt(s.p), pL + 4, y - 4);
+    ctx.fillText((s.t==='sup'?'S ':'R ')+'$'+fmt(s.p), pL+4, y-4);
   });
-  const step = cW / n, cw = Math.max(2, Math.floor(step * .65));
+  const step = cW/n, cw = Math.max(2, Math.floor(step*.65));
   if (document.getElementById('e14').checked) {
     ctx.strokeStyle = '#EF9F27'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
     ctx.beginPath(); let st = false;
-    sl.forEach((_, idx) => { const v = e14v[off + idx]; if (v && v >= minP && v <= maxP) { const x = pL + idx * step + step / 2; st ? ctx.lineTo(x, pY(v)) : ctx.moveTo(x, pY(v)); st = true; } });
-    ctx.stroke();
+    sl.forEach((_,idx) => { const v=e14v[off+idx]; if(v&&v>=minP&&v<=maxP){const x=pL+idx*step+step/2;st?ctx.lineTo(x,pY(v)):ctx.moveTo(x,pY(v));st=true;} }); ctx.stroke();
   }
   if (document.getElementById('e21').checked) {
     ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
     ctx.beginPath(); let st = false;
-    sl.forEach((_, idx) => { const v = e21v[off + idx]; if (v && v >= minP && v <= maxP) { const x = pL + idx * step + step / 2; st ? ctx.lineTo(x, pY(v)) : ctx.moveTo(x, pY(v)); st = true; } });
-    ctx.stroke();
+    sl.forEach((_,idx) => { const v=e21v[off+idx]; if(v&&v>=minP&&v<=maxP){const x=pL+idx*step+step/2;st?ctx.lineTo(x,pY(v)):ctx.moveTo(x,pY(v));st=true;} }); ctx.stroke();
   }
-  const lstep = Math.max(1, Math.floor(n / 8));
+  const lstep = Math.max(1, Math.floor(n/8));
   sl.forEach((c, idx) => {
-    const x = pL + idx * step + step / 2, bull = c.c >= c.o, col = bull ? '#1D9E75' : '#D85A30';
-    ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.setLineDash([]);
-    ctx.beginPath(); ctx.moveTo(x, pY(c.h)); ctx.lineTo(x, pY(c.l)); ctx.stroke();
-    ctx.fillStyle = col;
-    const yO = pY(c.o), yC = pY(c.c);
-    ctx.fillRect(x - cw / 2, Math.min(yO, yC), cw, Math.max(Math.abs(yC - yO), 1));
-    if (idx % lstep === 0) {
-      const d = new Date(c.t);
-      const lb = TF === '1h' ? d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('es-UY', { month: 'short', day: 'numeric' });
-      ctx.fillStyle = tc; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(lb, x, H - 5);
+    const x = pL+idx*step+step/2, bull=c.c>=c.o, col=bull?'#1D9E75':'#D85A30';
+    ctx.strokeStyle=col; ctx.lineWidth=1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x,pY(c.h)); ctx.lineTo(x,pY(c.l)); ctx.stroke();
+    ctx.fillStyle=col;
+    const yO=pY(c.o),yC=pY(c.c);
+    ctx.fillRect(x-cw/2, Math.min(yO,yC), cw, Math.max(Math.abs(yC-yO),1));
+    if (idx%lstep===0) {
+      const d=new Date(c.t);
+      const lb=TF==='1h'?d.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'}):d.toLocaleDateString('es-UY',{month:'short',day:'numeric'});
+      ctx.fillStyle=tc; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.fillText(lb,x,H-5);
     }
   });
-  const { ml, sig } = calcMACD(closes);
-  for (let k = off + 1; k < src.length; k++) {
-    const idx = k - off; if (idx >= n) continue;
-    const xU = ml[k-1] != null && sig[k-1] != null && ml[k] != null && sig[k] != null && ml[k-1] < sig[k-1] && ml[k] > sig[k];
-    const xD = ml[k-1] != null && sig[k-1] != null && ml[k] != null && sig[k] != null && ml[k-1] > sig[k-1] && ml[k] < sig[k];
-    const x = pL + idx * step + step / 2;
-    if (xU && pY(src[k].l) + 15 < H - pB) { ctx.fillStyle = '#1D9E75'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('▲', x, pY(src[k].l) + 14); }
-    if (xD && pY(src[k].h) - 8 > pT) { ctx.fillStyle = '#D85A30'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('▼', x, pY(src[k].h) - 6); }
+  // MACD arrows
+  const {ml,sig} = calcMACD(closes);
+  for (let k=off+1; k<src.length; k++) {
+    const idx=k-off; if(idx>=n) continue;
+    const xU=ml[k]!=null&&sig[k]!=null&&ml[k-1]!=null&&sig[k-1]!=null&&ml[k-2]!=null&&sig[k-2]!=null&&ml[k-2]<sig[k-2]&&ml[k-1]>sig[k-1]&&ml[k]>sig[k];
+    const xD=ml[k]!=null&&sig[k]!=null&&ml[k-1]!=null&&sig[k-1]!=null&&ml[k-2]!=null&&sig[k-2]!=null&&ml[k-2]>sig[k-2]&&ml[k-1]<sig[k-1]&&ml[k]<sig[k];
+    const x=pL+idx*step+step/2;
+    if(xU&&pY(src[k].l)+15<H-pB){ctx.fillStyle='#1D9E75';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('▲',x,pY(src[k].l)+14);}
+    if(xD&&pY(src[k].h)-8>pT){ctx.fillStyle='#D85A30';ctx.font='bold 12px sans-serif';ctx.textAlign='center';ctx.fillText('▼',x,pY(src[k].h)-6);}
   }
   cv.onmousemove = e => {
-    const rect = cv.getBoundingClientRect(), idx = Math.floor((e.clientX - rect.left - pL) / step);
-    const tp = document.getElementById('ttp');
-    if (idx < 0 || idx >= n) { tp.style.display = 'none'; return; }
-    const c = sl[idx], d = new Date(c.t);
-    tp.style.display = 'block';
-    const chg = ((c.c - c.o) / c.o * 100).toFixed(2);
-    tp.innerHTML = `<b>${d.toLocaleDateString('es-UY', { weekday: 'short', month: 'short', day: 'numeric' })} ${d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })}</b><br>O: $${fmt(c.o)} H: $${fmt(c.h)}<br>L: $${fmt(c.l)} C: $${fmt(c.c)}<br><span style="color:${c.c >= c.o ? 'var(--green)' : 'var(--red)'}">${chg > 0 ? '+' : ''}${chg}%</span>`;
+    const rect=cv.getBoundingClientRect(), idx=Math.floor((e.clientX-rect.left-pL)/step);
+    const tp=document.getElementById('ttp');
+    if(idx<0||idx>=n){tp.style.display='none';return;}
+    const c=sl[idx],d=new Date(c.t);
+    tp.style.display='block';
+    const chg=((c.c-c.o)/c.o*100).toFixed(2);
+    tp.innerHTML=`<b>${d.toLocaleDateString('es-UY',{weekday:'short',month:'short',day:'numeric'})} ${d.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})}</b><br>O $${fmt(c.o)} H $${fmt(c.h)}<br>L $${fmt(c.l)} C $${fmt(c.c)}<br><span style="color:${c.c>=c.o?'var(--green)':'var(--red)'}">${chg>0?'+':''}${chg}%</span>`;
   };
   cv.onmouseleave = () => { document.getElementById('ttp').style.display = 'none'; };
 }
 
 function drawMACD(src, ml, sig, hist) {
-  const labels = src.map(c => { const d = new Date(c.t); return d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }); });
+  const labels = src.map(c => { const d=new Date(c.t); return d.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'}); });
   if (MC) { MC.destroy(); MC = null; }
   MC = new Chart(document.getElementById('mc2').getContext('2d'), {
     type: 'bar',
     data: { labels, datasets: [
-      { type: 'bar', label: 'Histograma', data: hist, backgroundColor: hist.map(v => v == null ? 'transparent' : v >= 0 ? 'rgba(29,158,117,.6)' : 'rgba(216,90,48,.6)'), order: 3 },
-      { type: 'line', label: 'MACD', data: ml, borderColor: '#378ADD', borderWidth: 1.5, pointRadius: 0, fill: false, tension: .3, order: 1 },
-      { type: 'line', label: 'Señal', data: sig, borderColor: '#EF9F27', borderWidth: 1.5, pointRadius: 0, fill: false, tension: .3, order: 2 }
+      { type:'bar', label:'Hist', data:hist, backgroundColor:hist.map(v=>v==null?'transparent':v>=0?'rgba(29,158,117,.6)':'rgba(216,90,48,.6)'), order:3 },
+      { type:'line', label:'MACD', data:ml, borderColor:'#378ADD', borderWidth:1.5, pointRadius:0, fill:false, tension:.3, order:1 },
+      { type:'line', label:'Señal', data:sig, borderColor:'#EF9F27', borderWidth:1.5, pointRadius:0, fill:false, tension:.3, order:2 }
     ]},
-    options: { responsive: true, animation: false, plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 12 } } }, scales: { x: { ticks: { maxTicksLimit: 8, font: { size: 10 } }, grid: { display: false } }, y: { ticks: { font: { size: 10 } }, grid: { color: 'rgba(128,128,128,.08)' } } } }
+    options: { responsive:true, animation:false, plugins:{ legend:{ labels:{ font:{size:10}, boxWidth:10 } } }, scales:{ x:{ ticks:{ maxTicksLimit:8, font:{size:9} }, grid:{display:false} }, y:{ ticks:{font:{size:10}}, grid:{color:'rgba(128,128,128,.08)'} } } }
   });
 }
 
 function setTF(tf) {
   TF = tf;
   document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tf-' + tf).classList.add('active');
+  document.getElementById('tf-'+tf).classList.add('active');
   analyze(); redraw();
-  if (notifActive && swReg && swReg.active) swReg.active.postMessage({ type: 'START_MONITORING', tf: TF, srLevels: SR });
 }
 
 function addSR() {
   const p = parseFloat(document.getElementById('srp').value);
   const t = document.querySelector('input[name="srt"]:checked').value;
   if (isNaN(p) || p <= 0) return;
-  SR.push({ p, t });
-  document.getElementById('srp').value = '';
-  renderSR(); analyze(); redraw(); syncSWState();
+  SR.push({ p, t }); document.getElementById('srp').value = '';
+  renderSR(); analyze(); redraw();
 }
-function rmSR(i) { SR.splice(i, 1); renderSR(); analyze(); redraw(); syncSWState(); }
+function rmSR(i) { SR.splice(i,1); renderSR(); analyze(); redraw(); }
 function renderSR() {
-  document.getElementById('srl').innerHTML = SR.map((s, i) =>
-    `<span class="sr-tag ${s.t}" onclick="rmSR(${i})">${s.t === 'sup' ? '▲' : '▼'} $${fmt(s.p)} ×</span>`
+  document.getElementById('srl').innerHTML = SR.map((s,i) =>
+    `<span class="sr-tag ${s.t}" onclick="rmSR(${i})">${s.t==='sup'?'▲':'▼'} $${fmt(s.p)} ×</span>`
   ).join('');
 }
 
@@ -682,8 +633,8 @@ function startTick() {
   if (tickI) clearInterval(tickI); tick = 120;
   tickI = setInterval(() => {
     tick--;
-    const m = Math.floor(tick / 60), s = tick % 60;
-    document.getElementById('mtimer').textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    const m = Math.floor(tick/60), s = tick%60;
+    document.getElementById('mtimer').textContent = m+':'+(s<10?'0':'')+s;
     if (tick <= 0) load();
   }, 1000);
 }
