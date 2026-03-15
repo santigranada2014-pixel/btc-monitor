@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -335,9 +335,14 @@ function scoreV1(src, i, src4h) {
   const volSurge = vols[vols.length-1] > avgVol * 1.2;
   const longItems = [isHL, isHH||tUp, !tDn, atSupport, isRetest, hammer, strongBull, !!aboveEMA, sl14u&&sl21u, !(sl14d&&sl21d), xUp, histGreen, histGrow, volSurge];
   const shortItems = [isLH, isLL||tDn, tDn, atResistance, isRetestRes, star, strongBear, !!belowEMA, sl14d&&sl21d, xDn, histRed&&histRedGrow, volSurge&&bear];
+  // Mandatory conditions: retest + rejection candle
+  const longMandatory = atSupport && (hammer || strongBull);
+  const shortMandatory = atResistance && (star || strongBear);
+
   return {
     longPct: Math.round(longItems.filter(Boolean).length / longItems.length * 100),
-    shortPct: Math.round(shortItems.filter(Boolean).length / shortItems.length * 100)
+    shortPct: Math.round(shortItems.filter(Boolean).length / shortItems.length * 100),
+    longMandatory, shortMandatory
   };
 }
 
@@ -474,11 +479,16 @@ function scoreV2(src, i, src4h) {
   const lOk = LONG_ITEMS.filter(x => x.ok).length;
   const sOk = SHORT_ITEMS.filter(x => x.ok).length;
 
+  // Mandatory: soporte/resistencia + retest + rechazo con vela
+  const longMandatory = atSupport && isRetest && (hammer || strongBull);
+  const shortMandatory = atResistance && isRetestRes && (star || strongBear);
+
   return {
     longPct: Math.round(lOk / LONG_ITEMS.length * 100),
     shortPct: Math.round(sOk / SHORT_ITEMS.length * 100),
     longItems: LONG_ITEMS,
-    shortItems: SHORT_ITEMS
+    shortItems: SHORT_ITEMS,
+    longMandatory, shortMandatory
   };
 } // end scoreV2
 
@@ -489,12 +499,13 @@ function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, capitalPe
 
   for (let i = 26; i < candles.length - 1; i++) {
     if (inTradeUntil.has(i)) continue;
-    const { longPct, shortPct } = scoreCandle(candles, i, candles4h);
+    const { longPct, shortPct, longMandatory, shortMandatory } = scoreCandle(candles, i, candles4h);
     const entryPrice = candles[i + 1].o;
 
     let side = null, score = 0;
-    if (longPct >= minScore && longPct >= shortPct) { side = 'LONG'; score = longPct; }
-    else if (shortPct >= minScore) { side = 'SHORT'; score = shortPct; }
+    // Mandatory conditions must ALL pass, then check percentage
+    if (longMandatory && longPct >= minScore && longPct >= shortPct) { side = 'LONG'; score = longPct; }
+    else if (shortMandatory && shortPct >= minScore) { side = 'SHORT'; score = shortPct; }
     if (!side) continue;
 
     const slPrice = side === 'LONG' ? entryPrice * (1 - slPct / 100) : entryPrice * (1 + slPct / 100);
@@ -569,7 +580,7 @@ async function runBacktest() {
   await new Promise(r => setTimeout(r, 50));
 
   backtestTrades = runBacktestEngine(allCandles, allCandles4h, slPct, tpPct, minScore, capital);
-  document.getElementById('chart-title').textContent = `Velas BTC ${tf.toUpperCase()} — ${days} días — SL ${slPct}% / TP ${tpPct}% — mín ${minScore}%`;
+  document.getElementById('chart-title').textContent = `Velas BTC ${tf.toUpperCase()} — ${days} días — SL ${slPct}% / TP ${tpPct}% — obligatorias ON — mín ${minScore}%`;
   updateStats(backtestTrades, capital);
   renderTrades(backtestTrades);
   redrawChart();
