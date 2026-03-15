@@ -444,33 +444,77 @@ function analyze() {
   const cl = buildChecklist(src, D4);
   if (!cl) return;
   const ls = score(cl.LONG), ss = score(cl.SHORT);
-  renderCL('cll', '▲ Checklist LONG', cl.LONG, ls, 'var(--green)', 'var(--green-text)');
-  renderCL('cls', '▼ Checklist SHORT', cl.SHORT, ss, 'var(--red)', 'var(--red-text)');
 
-  if (ls.pct >= 70 && ls.pct >= ss.pct) {
-    setAlert('long', '🟢 POSIBLE LONG — $' + fmt(price), ls.ok + '/' + ls.total + ' condiciones (' + ls.pct + '%) · Verificá en Binance');
+  // Mandatory conditions for real signal
+  const n = src.length, last = src[n-1];
+  const bull = last.c >= last.o, bear = last.c < last.o;
+  const body = Math.abs(last.c - last.o), rng = last.h - last.l || 1;
+  const lwk = Math.min(last.c, last.o) - last.l, uwk = last.h - Math.max(last.c, last.o);
+  const hammer = lwk > body * 2 && bull && body / rng > 0.15;
+  const star = uwk > body * 2 && bear && body / rng > 0.15;
+  const strongBull = bull && body / rng > 0.65;
+  const strongBear = bear && body / rng > 0.65;
+
+  // Check S/R from manual levels
+  const nearSup = SR.find(s => s.t === 'sup' && Math.abs(s.p - last.c) / last.c < 0.018);
+  const nearRes = SR.find(s => s.t === 'res' && Math.abs(s.p - last.c) / last.c < 0.018);
+  const retestSup = SR.find(s => s.t === 'sup' && last.l <= s.p * 1.008 && last.c > s.p);
+  const retestRes2 = SR.find(s => s.t === 'res' && last.h >= s.p * 0.992 && last.c < s.p);
+
+  const longMandatory = (!!nearSup || !!retestSup) && !!retestSup && (hammer || strongBull);
+  const shortMandatory = (!!nearRes || !!retestRes2) && !!retestRes2 && (star || strongBear);
+
+  renderCL('cll', '▲ Checklist LONG', cl.LONG, ls, 'var(--green)', 'var(--green-text)', longMandatory);
+  renderCL('cls', '▼ Checklist SHORT', cl.SHORT, ss, 'var(--red)', 'var(--red-text)', shortMandatory);
+
+  if (longMandatory && ls.pct >= 70 && ls.pct >= ss.pct) {
+    setAlert('long', '🟢 POSIBLE LONG — $' + fmt(price), '✅ Obligatorias OK · ' + ls.ok + '/' + ls.total + ' cond. (' + ls.pct + '%) · Verificá en Binance');
     push('LONG', ls, price);
-  } else if (ss.pct >= 70) {
-    setAlert('short', '🔴 POSIBLE SHORT — $' + fmt(price), ss.ok + '/' + ss.total + ' condiciones (' + ss.pct + '%) · Verificá en Binance');
+  } else if (shortMandatory && ss.pct >= 70) {
+    setAlert('short', '🔴 POSIBLE SHORT — $' + fmt(price), '✅ Obligatorias OK · ' + ss.ok + '/' + ss.total + ' cond. (' + ss.pct + '%) · Verificá en Binance');
     push('SHORT', ss, price);
-  } else if (ls.pct >= 50) {
-    setAlert('wait', '🟡 Setup LONG en formación — $' + fmt(price), ls.ok + '/' + ls.total + ' cond. (' + ls.pct + '%) · Esperá confirmación');
-  } else if (ss.pct >= 50) {
-    setAlert('wait', '🟡 Setup SHORT en formación — $' + fmt(price), ss.ok + '/' + ss.total + ' cond. (' + ss.pct + '%) · Esperá confirmación');
+  } else if (ls.pct >= 50 && !longMandatory) {
+    setAlert('wait', '🟡 Setup LONG en formación — $' + fmt(price), '⚠️ Falta: soporte + retest + rechazo · ' + ls.pct + '%');
+  } else if (ss.pct >= 50 && !shortMandatory) {
+    setAlert('wait', '🟡 Setup SHORT en formación — $' + fmt(price), '⚠️ Falta: resistencia + retest + rechazo · ' + ss.pct + '%');
   } else {
     setAlert('wait', '⏳ Sin setup — $' + fmt(price), 'LONG: ' + ls.pct + '%  SHORT: ' + ss.pct + '%');
   }
 }
 
-function renderCL(id, title, cl, sc, color, textColor) {
-  let h = `<div class="cl-col-title" style="color:${textColor}">${title}</div>`;
+function renderCL(id, title, cl, sc, color, textColor, mandatory) {
+  const mandIcon = mandatory === true ? ' <span style="font-size:11px;background:#e8f7f2;color:#0f6e56;padding:2px 7px;border-radius:6px;font-weight:700">✅ Obligatorias OK</span>'
+    : mandatory === false ? ' <span style="font-size:11px;background:#fdf0eb;color:#993c1d;padding:2px 7px;border-radius:6px;font-weight:700">⚠️ Faltan obligatorias</span>'
+    : '';
+  let h = `<div class="cl-col-title" style="color:${textColor}">${title}${mandIcon}</div>`;
+
+  // Separate mandatory vs optional items
+  const mandatoryLabels = ['soporte', 'retest', 'mecha', 'vela alcista fuerte', 'vela bajista fuerte', 'resistencia'];
+  const isMandItem = l => mandatoryLabels.some(m => l.toLowerCase().includes(m));
+
+  const mandItems = [], optItems = [];
   Object.entries(cl).forEach(([sec, items]) => {
+    items.forEach(it => { isMandItem(it.l) ? mandItems.push({...it, sec}) : optItems.push({...it, sec}); });
+  });
+
+  // Render mandatory section
+  if (mandItems.length) {
+    h += `<div class="cl-sec"><div class="cl-sec-name" style="color:#D85A30">⚑ Obligatorias</div>`;
+    mandItems.forEach(it => { h += `<div class="cl-item"><div class="dot ${it.ok ? 'dok' : 'dno'}"></div><span class="${it.ok ? 'ok-t' : 'no-t'}" style="font-weight:${it.ok?'600':'400'}">${it.l}</span></div>`; });
+    h += '</div>';
+  }
+
+  // Render optional sections grouped
+  const grouped = {};
+  optItems.forEach(it => { if (!grouped[it.sec]) grouped[it.sec] = []; grouped[it.sec].push(it); });
+  Object.entries(grouped).forEach(([sec, items]) => {
     h += `<div class="cl-sec"><div class="cl-sec-name">${sec}</div>`;
     items.forEach(it => { h += `<div class="cl-item"><div class="dot ${it.ok ? 'dok' : 'dno'}"></div><span class="${it.ok ? 'ok-t' : 'no-t'}">${it.l}</span></div>`; });
     h += '</div>';
   });
+
   h += `<div class="bar-bg"><div class="bar-fill" style="width:${sc.pct}%;background:${color}"></div></div>`;
-  h += `<div class="score-row"><span>${sc.ok}/${sc.total} condiciones</span><span style="font-weight:700;color:${textColor}">${sc.pct}%</span></div>`;
+  h += `<div class="score-row"><span>${sc.ok}/${sc.total} confirmaciones</span><span style="font-weight:700;color:${textColor}">${sc.pct}%</span></div>`;
   document.getElementById(id).innerHTML = h;
 }
 
