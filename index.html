@@ -117,6 +117,7 @@ canvas { width: 100% !important; display: block; }
 .sr-tag { font-size: 12px; padding: 5px 12px; border-radius: var(--radius); cursor: pointer; }
 .sr-tag.sup { background: var(--green-bg); color: var(--green-text); border: 1px solid var(--green); }
 .sr-tag.res { background: var(--red-bg); color: var(--red-text); border: 1px solid var(--red); }
+.sr-tag.lvl { background: var(--bg2); color: var(--blue); border: 1px solid var(--blue); }
 
 .hist-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
 .hist-row:last-child { border-bottom: none; }
@@ -217,11 +218,10 @@ canvas { width: 100% !important; display: block; }
   </div>
 
   <div class="card">
-    <div class="card-title">Soportes y Resistencias manuales</div>
+    <div class="card-title">Niveles manuales</div>
     <div class="sr-row">
       <input type="number" id="srp" placeholder="Precio ej: 84000" step="100" inputmode="numeric">
-      <label><input type="radio" name="srt" value="sup" checked> Soporte</label>
-      <label><input type="radio" name="srt" value="res"> Resistencia</label>
+
       <button class="btn" onclick="addSR()">+ Agregar</button>
     </div>
     <div class="sr-tags" id="srl"></div>
@@ -422,26 +422,26 @@ function analyze() {
   const isLH = last.h < prev.h, isLL = last.l < prev.l;
   // S/R detection — tighter tolerance (0.8%)
   // LONG: price sitting on or retesting a support from above
-  const nearSup = SR.find(s => s.t === 'sup' && last.c >= s.p * 0.992 && last.c <= s.p * 1.008);
-  const retestSup = SR.find(s => s.t === 'sup' && last.l <= s.p * 1.003 && last.c > s.p);
+  const nearSup = SR.find(s => s.t === 'lvl' && last.c >= s.p * 0.992 && last.c <= s.p * 1.008);
+  const retestSup = SR.find(s => s.t === 'lvl' && last.l <= s.p * 1.003 && last.c > s.p);
   const nearSupFinal = nearSup;
 
   // SHORT: two cases
   // Case A — classic resistance (price approaching from below)
-  const nearRes = SR.find(s => s.t === 'res' && last.c >= s.p * 0.992 && last.c <= s.p * 1.008);
-  const retestRes = SR.find(s => s.t === 'res' && last.h >= s.p * 0.997 && last.c < s.p);
+  const nearRes = SR.find(s => s.t === 'lvl' && last.c >= s.p * 0.992 && last.c <= s.p * 1.008);
+  const retestRes = SR.find(s => s.t === 'lvl' && last.h >= s.p * 0.997 && last.c < s.p);
 
   // "Cerró debajo del nivel" — true if the support is already broken
   // i.e. the current price is below the support (meaning a previous candle already closed below)
-  const closedBelowSup = SR.find(s => s.t === 'sup' && last.c < s.p * 0.997);
-  const supBroken = SR.find(s => s.t === 'sup' && last.c < s.p);
+  const closedBelowSup = SR.find(s => s.t === 'lvl' && last.c < s.p * 0.997);
+  const supBroken = SR.find(s => s.t === 'lvl' && last.c < s.p);
   // "Retest" = price came back up to touch the broken support from below
-  const brokenSup = SR.find(s => s.t === 'sup' &&
+  const brokenSup = SR.find(s => s.t === 'lvl' &&
     last.c < s.p &&           // price is below the support
     last.h >= s.p * 0.997 &&  // wick touched or reached the level
     last.c < s.p * 0.997      // but closed below (rejection confirmed)
   );
-  const brokenSupNear = SR.find(s => s.t === 'sup' &&
+  const brokenSupNear = SR.find(s => s.t === 'lvl' &&
     last.c < s.p &&                    // price is below
     (s.p - last.c) / s.p < 0.015      // within 1.5% — actively retesting
   );
@@ -486,7 +486,7 @@ function analyze() {
     '2. Nivel': [
       { l: 'En soporte o resistencia rota', ok: !!nearSupFinal || !!retestSup },
       { l: 'Retest del nivel', ok: !!retestSup },
-      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'sup') },
+      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'lvl') },
     ],
     '3. Vela': [
       { l: 'Mecha inferior (rechazo)', ok: hammer },
@@ -513,7 +513,7 @@ function analyze() {
     '2. Nivel': [
       { l: 'Rompió soporte o en resistencia', ok: !!supBroken || !!nearRes },
       { l: 'Retest del nivel (rechazo)', ok: !!retestResFinal },
-      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'res') || SR.some(s => s.t === 'sup') },
+      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'lvl') || SR.some(s => s.t === 'lvl') },
     ],
     '3. Vela': [
       { l: 'Mecha superior (rechazo)', ok: star },
@@ -759,13 +759,13 @@ function drawCandles(src) {
   }
   SR.forEach(s => {
     const y = pY(s.p); if (y < pT - 10 || y > pT + cH + 10) return;
-    ctx.strokeStyle = s.t === 'sup' ? 'rgba(29,158,117,.75)' : 'rgba(216,90,48,.75)';
+    ctx.strokeStyle = 'rgba(55,138,221,.75)';
     ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
     ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(W - pR, y); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = s.t === 'sup' ? '#1D9E75' : '#D85A30';
+    ctx.fillStyle = '#378ADD';
     ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'left';
-    ctx.fillText((s.t === 'sup' ? 'S ' : 'R ') + '$' + fmt(s.p), pL + 4, y - 4);
+    ctx.fillText('N $' + fmt(s.p), pL + 4, y - 4);
   });
   const step = cW / n, cw = Math.max(2, Math.floor(step * .65));
   if (document.getElementById('e14').checked) {
@@ -898,7 +898,7 @@ function setTF(tf) {
 
 function addSR() {
   const p = parseFloat(document.getElementById('srp').value);
-  const t = document.querySelector('input[name="srt"]:checked').value;
+  const t = 'lvl'; // unified level type
   if (isNaN(p) || p <= 0) return;
   SR.push({ p, t });
   document.getElementById('srp').value = '';
@@ -912,7 +912,7 @@ function rmSR(i) {
 }
 function renderSR() {
   document.getElementById('srl').innerHTML = SR.map((s, i) =>
-    `<span class="sr-tag ${s.t}" onclick="rmSR(${i})">${s.t === 'sup' ? '▲' : '▼'} $${fmt(s.p)} ×</span>`
+    `<span class="sr-tag lvl" onclick="rmSR(${i})">⬥ $${fmt(s.p)} ×</span>`
   ).join('');
 }
 
