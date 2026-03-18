@@ -480,8 +480,17 @@ async function runBacktest() {
 
   btn.textContent = '⏳ Analizando...';
   await new Promise(r => setTimeout(r, 50));
+  console.log('Candles loaded:', allCandles.length, 'x', tf, '| 4h:', allCandles4h.length);
 
-  backtestTrades = runBacktestEngine(allCandles, allCandles4h, slPct, tpPct, minScore, capital);
+  try {
+    backtestTrades = runBacktestEngine(allCandles, allCandles4h, slPct, tpPct, minScore, capital);
+    console.log('Trades found:', backtestTrades.length);
+  } catch(err) {
+    console.error('Engine error:', err);
+    document.getElementById('trade-list').innerHTML = `<div class="status-msg">❌ Error: ${err.message}</div>`;
+    btn.disabled = false; btn.textContent = '▶ Correr Backtest';
+    return;
+  }
   document.getElementById('chart-title').textContent = `Velas BTC ${tf.toUpperCase()} — ${days} días — SL ${slPct}% / TP ${tpPct}% — obligatorias ON — mín ${minScore}%`;
   updateStats(backtestTrades, capital);
   renderTrades(backtestTrades);
