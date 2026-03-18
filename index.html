@@ -239,8 +239,14 @@ canvas { width: 100% !important; display: block; }
 'use strict';
 let MC = null, D1 = [], D4 = [], SR = [], TF = '1h';
 
-// Load saved S/R levels from localStorage (persists between sessions)
-try { SR = JSON.parse(localStorage.getItem('btc_sr') || '[]'); } catch(e) { SR = []; }
+// Load saved levels — migrate old sup/res format to new lvl format
+try {
+  const saved = JSON.parse(localStorage.getItem('btc_sr') || '[]');
+  SR = saved.map(s => ({ p: s.p, t: 'lvl' }));
+  // Remove duplicates by price
+  SR = SR.filter((s, i) => SR.findIndex(x => x.p === s.p) === i);
+  localStorage.setItem('btc_sr', JSON.stringify(SR));
+} catch(e) { SR = []; }
 let price = 0, alertHist = [], lastKey = '', tick = 120, tickI = null;
 let swReg = null, notifActive = false;
 let deferredPrompt = null;
