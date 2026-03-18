@@ -221,8 +221,8 @@ canvas { width: 100% !important; display: block; }
     <div class="card-title">Niveles manuales</div>
     <div class="sr-row">
       <input type="number" id="srp" placeholder="Precio ej: 84000" step="100" inputmode="numeric">
-
       <button class="btn" onclick="addSR()">+ Agregar</button>
+      <button class="btn" onclick="clearAllSR()" style="background:var(--red-bg);color:var(--red-text);border:1px solid var(--red)">🗑 Borrar todo</button>
     </div>
     <div class="sr-tags" id="srl"></div>
   </div>
@@ -239,13 +239,23 @@ canvas { width: 100% !important; display: block; }
 'use strict';
 let MC = null, D1 = [], D4 = [], SR = [], TF = '1h';
 
-// Load saved levels — migrate old sup/res format to new lvl format
+// Load saved levels — migrate any old sup/res format to new lvl format
 try {
-  const saved = JSON.parse(localStorage.getItem('btc_sr') || '[]');
-  SR = saved.map(s => ({ p: s.p, t: 'lvl' }));
-  // Remove duplicates by price
-  SR = SR.filter((s, i) => SR.findIndex(x => x.p === s.p) === i);
-  localStorage.setItem('btc_sr', JSON.stringify(SR));
+  const raw = localStorage.getItem('btc_sr');
+  if (raw) {
+    const saved = JSON.parse(raw);
+    // Convert all to lvl type and deduplicate
+    const seen = new Set();
+    SR = saved.reduce((acc, s) => {
+      const p = +s.p;
+      if (!isNaN(p) && p > 0 && !seen.has(p)) {
+        seen.add(p);
+        acc.push({ p, t: 'lvl' });
+      }
+      return acc;
+    }, []);
+    localStorage.setItem('btc_sr', JSON.stringify(SR));
+  }
 } catch(e) { SR = []; }
 let price = 0, alertHist = [], lastKey = '', tick = 120, tickI = null;
 let swReg = null, notifActive = false;
@@ -902,6 +912,11 @@ function setTF(tf) {
   if (notifActive && swReg && swReg.active) swReg.active.postMessage({ type: 'START_MONITORING', tf: TF, srLevels: SR });
 }
 
+function clearAllSR() {
+  SR = [];
+  try { localStorage.removeItem('btc_sr'); } catch(e) {}
+  renderSR(); analyze(); redraw(); syncSWState();
+}
 function addSR() {
   const p = parseFloat(document.getElementById('srp').value);
   const t = 'lvl'; // unified level type
