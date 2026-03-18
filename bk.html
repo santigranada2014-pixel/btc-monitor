@@ -167,6 +167,11 @@ canvas { width: 100% !important; display: block; }
 </div>
 
 <div class="card">
+  <div class="card-title">Curva de Equity — Saldo de la cuenta</div>
+  <canvas id="eq" height="160"></canvas>
+</div>
+
+<div class="card">
   <div class="card-title">Lista de trades simulados</div>
   <div id="trade-list"><div class="status-msg">Configurá los parámetros y tocá "Correr Backtest"</div></div>
 </div>
@@ -452,8 +457,6 @@ function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, capitalPe
 async function runBacktest() {
   const btn = document.getElementById('run-btn');
   btn.disabled = true; btn.textContent = '⏳ Cargando...';
-  document.getElementById('trade-list').innerHTML = `<div class="status-msg">⏳ Descargando ${days} días de datos de Binance... ${days > 365 ? 'Períodos de 1-3 años pueden tardar 30-60 segundos.' : 'Puede tardar 10-20 segundos.'}</div>`;
-
   const tf = document.getElementById('tf').value;
   const days = +document.getElementById('period').value;
   const slPct = +document.getElementById('sl').value;
@@ -461,7 +464,9 @@ async function runBacktest() {
   const minScore = +document.getElementById('minscore').value;
   const capital = +document.getElementById('capital').value;
   const candlesPerDay = tf === '1h' ? 24 : 6;
-  const limit = days * candlesPerDay + 60; // no cap — multi-request handles >1000
+  const limit = days * candlesPerDay + 60;
+
+  document.getElementById('trade-list').innerHTML = `<div class="status-msg">⏳ Descargando ${days} días de datos de Binance... ${days > 365 ? 'Períodos de 1-3 años pueden tardar 30-60 segundos.' : 'Puede tardar 10-20 segundos.'}</div>`;
 
   try {
     [allCandles, allCandles4h] = await Promise.all([
@@ -495,6 +500,7 @@ async function runBacktest() {
   updateStats(backtestTrades, capital);
   renderTrades(backtestTrades);
   redrawChart();
+  drawEquity(backtestTrades, capital);
   btn.disabled = false; btn.textContent = '▶ Correr Backtest';
 }
 
@@ -693,6 +699,78 @@ function renderTrades(trades) {
   });
   html += '</tbody></table>';
   document.getElementById('trade-list').innerHTML = html;
+}
+
+// ── Equity Curve ──────────────────────────────────────
+let EQ = null;
+function drawEquity(trades, startCapital) {
+  if (EQ) { EQ.destroy(); EQ = null; }
+  if (!trades.length) return;
+
+  // Build equity curve — starts at capital, adds each trade's pnl
+  const labels = ['Inicio'];
+  const data = [startCapital];
+  const colors = [];
+  let running = startCapital;
+
+  trades.forEach(t => {
+    running += t.pnlUSD;
+    const d = new Date(t.entryTime || t.exitTime);
+    labels.push(d.toLocaleDateString('es-UY', { month: 'short', day: 'numeric' }));
+    data.push(+running.toFixed(2));
+    colors.push(t.result === 'TP' ? 'rgba(29,158,117,.8)' : 'rgba(216,90,48,.8)');
+  });
+
+  const maxVal = Math.max(...data);
+  const minVal = Math.min(...data);
+  const isDark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const gridColor = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)';
+  const textColor = isDark ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.5)';
+
+  EQ = new Chart(document.getElementById('eq').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Saldo',
+        data,
+        borderColor: '#378ADD',
+        borderWidth: 2,
+        pointRadius: trades.length < 100 ? 4 : 0,
+        pointBackgroundColor: ['#378ADD', ...colors],
+        fill: true,
+        backgroundColor: 'rgba(55,138,221,.08)',
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `$${ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 10, font: { size: 10 }, color: textColor },
+          grid: { color: gridColor }
+        },
+        y: {
+          ticks: {
+            font: { size: 10 }, color: textColor,
+            callback: v => '$' + v.toLocaleString('en-US')
+          },
+          grid: { color: gridColor },
+          suggestedMin: minVal * 0.98,
+          suggestedMax: maxVal * 1.02
+        }
+      }
+    }
+  });
 }
 
 window.addEventListener('resize', () => redrawChart());
