@@ -447,9 +447,8 @@ function analyze() {
   const nearRes = SR.find(s => s.t === 'lvl' && last.c >= s.p * 0.992 && last.c <= s.p * 1.008);
   const retestRes = SR.find(s => s.t === 'lvl' && last.h >= s.p * 0.997 && last.c < s.p);
 
-  // "Cerró debajo del nivel" — true if the support is already broken
-  // i.e. the current price is below the support (meaning a previous candle already closed below)
-  const closedBelowSup = SR.find(s => s.t === 'lvl' && last.c < s.p * 0.997);
+  // "Cerró debajo del nivel" — price is anywhere below the marked level
+  const closedBelowSup = SR.find(s => s.t === 'lvl' && last.c < s.p);
   const supBroken = SR.find(s => s.t === 'lvl' && last.c < s.p);
   // "Retest" = price came back up to touch the broken support from below
   const brokenSup = SR.find(s => s.t === 'lvl' &&
