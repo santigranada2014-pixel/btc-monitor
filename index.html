@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BTC Monitor">
+<meta name="theme-color" content="#1D9E75">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>BTC Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --bg: #ffffff; --bg2: #f5f5f5; --bg3: #eeeeee;
+  --text: #111111; --text2: #666666; --text3: #999999;
+  --border: rgba(0,0,0,0.1); --border2: rgba(0,0,0,0.2);
+  --green: #1D9E75; --green-bg: #e8f7f2; --green-text: #0f6e56;
+  --red: #D85A30; --red-bg: #fdf0eb; --red-text: #993c1d;
+  --blue: #378ADD; --amber: #EF9F27;
+  --warn-bg: #fef9ec; --warn-text: #856309;
+  --radius: 8px; --radius-lg: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a; --bg2: #252525; --bg3: #2f2f2f;
+    --text: #f0f0f0; --text2: #aaaaaa; --text3: #666666;
+    --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.15);
+    --green-bg: #0d3326; --green-text: #5DCAA5;
+    --red-bg: #3a1a10; --red-text: #F0997B;
+    --warn-bg: #2e2510; --warn-text: #FAC775;
+  }
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg3); color: var(--text); min-height: 100vh; padding-bottom: env(safe-area-inset-bottom); }
+.container { max-width: 960px; margin: 0 auto; padding: 16px 14px; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+.header h1 { font-size: 18px; font-weight: 700; }
+.header-right { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tf-btn { font-size: 13px; padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border2); background: transparent; color: var(--text2); cursor: pointer; font-weight: 500; }
+.tf-btn.active { background: var(--bg2); color: var(--text); }
+.btn { font-size: 13px; padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--bg); color: var(--text); cursor: pointer; }
+.btn:active { opacity: .7; }
+.btn-notif { font-size: 13px; padding: 6px 14px; border-radius: var(--radius); border: none; cursor: pointer; font-weight: 600; }
+.btn-notif.off { background: var(--green-bg); color: var(--green-text); }
+.btn-notif.on  { background: var(--bg2); color: var(--text2); }
+.src-badge { font-size: 11px; padding: 3px 9px; border-radius: var(--radius); font-weight: 600; }
+.src-live { background: var(--green-bg); color: var(--green-text); }
+.src-demo { background: var(--warn-bg); color: var(--warn-text); }
+
+/* Install banner */
+.install-banner { display: none; background: var(--blue); color: #fff; border-radius: var(--radius-lg); padding: 12px 16px; margin-bottom: 12px; font-size: 13px; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.install-banner.show { display: flex; }
+.install-banner button { background: white; color: var(--blue); border: none; border-radius: var(--radius); padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+@media (max-width: 600px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+.metric { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 10px 12px; }
+.metric-label { font-size: 10px; color: var(--text2); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .04em; }
+.metric-value { font-size: 16px; font-weight: 700; }
+
+.alert { border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 12px; border: 1px solid transparent; }
+.alert-long  { background: var(--green-bg); color: var(--green-text); border-color: var(--green); }
+.alert-short { background: var(--red-bg);   color: var(--red-text);   border-color: var(--red); }
+.alert-wait  { background: var(--bg2); color: var(--text2); border-color: var(--border); }
+.alert-title { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+.alert-sub   { font-size: 12px; opacity: .85; }
+
+.card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 12px; }
+.card-title { font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px; }
+.chart-label { font-size: 11px; color: var(--text2); }
+.ema-toggles { display: flex; gap: 12px; }
+.ema-toggles label { font-size: 12px; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.zbtn { font-size:13px;width:26px;height:26px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;justify-content:center; }
+.zbtn:hover{background:var(--bg3)}.zbtn:active{opacity:.7}
+.chart-wrap { position: relative; }
+.tooltip-box { position: absolute; top: 36px; left: 60px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 7px 10px; font-size: 12px; pointer-events: none; z-index: 9; display: none; line-height: 1.7; }
+canvas { width: 100% !important; display: block; }
+
+.macd-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
+.macd-stat { font-size: 12px; color: var(--text2); }
+.macd-stat b { color: var(--text); }
+
+.cl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+@media (max-width: 500px) { .cl-grid { grid-template-columns: 1fr; } }
+.cl-col { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px; }
+.cl-col-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; padding-bottom: 7px; border-bottom: 1px solid var(--border); }
+.cl-sec { margin-bottom: 8px; }
+.cl-sec-name { font-size: 10px; color: var(--text2); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.cl-item { display: flex; align-items: flex-start; gap: 6px; padding: 3px 0; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.dok { background: var(--green); }
+.dno { background: var(--red); opacity: .5; }
+.cl-item { cursor: pointer; user-select: none; }
+.cl-item span { font-size: 12px; line-height: 1.4; }
+.cl-item:hover { opacity: .8; }
+.ok-t { color: var(--green-text); }
+.no-t { color: var(--text2); }
+.cl-item.unticked span { opacity: .35; text-decoration: line-through; }
+.cl-item.unticked .dot { opacity: .25; }
+.thr-row { display:flex;align-items:center;gap:8px;margin-bottom:10px; }
+.thr-row label { font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em; }
+.thr-row input[type=range] { flex:1; }
+.thr-val { font-size:14px;font-weight:700;min-width:40px; }
+.bar-bg { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin: 8px 0 4px; }
+.bar-fill { height: 5px; border-radius: 3px; transition: width .4s; }
+.score-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); }
+
+.sr-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.sr-row input[type=number] { flex: 1; min-width: 110px; font-size: 14px; padding: 8px 10px; border-radius: var(--radius); border: 1px solid var(--border2); background: var(--bg2); color: var(--text); }
+.sr-row label { font-size: 13px; color: var(--text2); cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.sr-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.sr-tag { font-size: 12px; padding: 5px 12px; border-radius: var(--radius); cursor: pointer; }
+.sr-tag.sup { background: var(--green-bg); color: var(--green-text); border: 1px solid var(--green); }
+.sr-tag.res { background: var(--red-bg); color: var(--red-text); border: 1px solid var(--red); }
+
+.hist-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.hist-row:last-child { border-bottom: none; }
+.bdg { font-size: 12px; padding: 3px 9px; border-radius: var(--radius); font-weight: 700; }
+.bdg-l { background: var(--green-bg); color: var(--green-text); }
+.bdg-s { background: var(--red-bg); color: var(--red-text); }
+
+.notif-status { font-size: 12px; color: var(--text2); margin-top: 6px; }
+.footer { text-align: center; font-size: 11px; color: var(--text3); margin-top: 6px; padding-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Install banner (shows on mobile when not installed) -->
+  <div class="install-banner" id="install-banner">
+    <span>📲 Instalá esta app en tu celular para recibir notificaciones en segundo plano</span>
+    <button onclick="installApp()">Instalar</button>
+  </div>
+
+  <div class="header">
+    <h1>₿ BTC Monitor</h1>
+    <div class="header-right">
+      <span id="src-badge" class="src-badge src-demo">demo</span>
+      <button class="tf-btn active" id="tf-1h" onclick="setTF('1h')">1H</button>
+      <button class="tf-btn" id="tf-4h" onclick="setTF('4h')">4H</button>
+      <button class="btn" onclick="load()">↻</button>
+      <button class="btn-notif off" id="notif-btn" onclick="toggleNotifications()">🔔 Activar alertas</button>
+    </div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric-label">Precio BTC</div><div class="metric-value" id="mp" style="color:var(--blue)">—</div></div>
+    <div class="metric"><div class="metric-label">Vela actual</div><div class="metric-value" id="mc">—</div></div>
+    <div class="metric"><div class="metric-label">Tendencia 4H</div><div class="metric-value" id="mt">—</div></div>
+    <div class="metric"><div class="metric-label">Próxima revisión</div><div class="metric-value" id="mtimer" style="color:var(--text2)">2:00</div></div>
+  </div>
+
+  <div id="alert" class="alert alert-wait">
+    <div class="alert-title" id="at">Conectando con Binance...</div>
+    <div class="alert-sub" id="as">Obteniendo datos en tiempo real</div>
+  </div>
+
+  <div class="card">
+    <div class="chart-header">
+      <span class="chart-label" id="clabel">Velas BTC 1H</span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="ema-toggles">
+          <label><input type="checkbox" id="e14" checked onchange="redraw()"> <span style="color:var(--amber);font-weight:700">EMA14</span></label>
+          <label><input type="checkbox" id="e21" checked onchange="redraw()"> <span style="color:var(--blue);font-weight:700">EMA21</span></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:3px">
+          <button class="zbtn" onclick="zH(-1)">＋</button>
+          <span id="zlabel" style="font-size:11px;color:var(--text2);min-width:28px;text-align:center">100</span>
+          <button class="zbtn" onclick="zH(1)">－</button>
+          <button class="zbtn" onclick="zV(-1)" title="Precio ↑">↑</button>
+          <button class="zbtn" onclick="zV(1)" title="Precio ↓">↓</button>
+          <button class="zbtn" onclick="zReset()" title="Reset">↺</button>
+          <button class="zbtn" onclick="pPrice=0;redraw()" title="Centrar precio" style="font-size:10px;padding:2px 5px">⊙</button>
+        </div>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="tooltip-box" id="ttp"></div>
+      <canvas id="cc" height="220" id="cc"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="macd-row">
+      <div class="macd-stat">MACD <b id="mv">—</b></div>
+      <div class="macd-stat">Señal <b id="sv">—</b></div>
+      <div class="macd-stat">Hist <b id="hv">—</b></div>
+      <div class="macd-stat">Estado <b id="mstate">—</b></div>
+    </div>
+    <canvas id="mc2" id="mc2"></canvas>
+  </div>
+
+  <!-- Alert threshold + reset ticks -->
+  <div class="card" style="margin-bottom:10px;padding:10px 14px">
+    <div class="thr-row">
+      <label>Umbral alerta</label>
+      <input type="range" id="thr" min="30" max="100" step="5" value="70" oninput="onThr()">
+      <span class="thr-val" id="thr-val" style="color:var(--green-text)">70%</span>
+      <button class="btn" onclick="resetTicks()" style="font-size:12px;padding:4px 10px">↺ Deshacer ticks</button>
+    </div>
+  </div>
+
+  <div class="cl-grid">
+    <div class="cl-col" id="cll">
+      <div class="cl-col-title" style="color:var(--green-text)">▲ Checklist LONG</div>
+      <div style="color:var(--text2);font-size:13px">Cargando...</div>
+    </div>
+    <div class="cl-col" id="cls">
+      <div class="cl-col-title" style="color:var(--red-text)">▼ Checklist SHORT</div>
+      <div style="color:var(--text2);font-size:13px">Cargando...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Soportes y Resistencias manuales</div>
+    <div class="sr-row">
+      <input type="number" id="srp" placeholder="Precio ej: 84000" step="100" inputmode="numeric">
+      <label><input type="radio" name="srt" value="sup" checked> Soporte</label>
+      <label><input type="radio" name="srt" value="res"> Resistencia</label>
+      <button class="btn" onclick="addSR()">+ Agregar</button>
+    </div>
+    <div class="sr-tags" id="srl"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Historial de alertas</div>
+    <div id="hl"><div style="font-size:13px;color:var(--text2)">Sin alertas aún — revisión cada 2 minutos</div></div>
+  </div>
+
+  <div class="footer">Datos: Binance API · Solo referencia, no asesoramiento financiero</div>
+</div>
+
+<script>
+'use strict';
+let MC = null, D1 = [], D4 = [], SR = [], TF = '1h';
+let price = 0, alertHist = [], lastKey = '', tick = 120, tickI = null;
+let swReg = null, notifActive = false;
+let deferredPrompt = null;
+
+const fmt = n => Math.round(n).toLocaleString('en-US');
+
+// ── PWA Install ───────────────────────────────────────
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show banner only if not already installed
+  if (!window.matchMedia('(display-mode: standalone)').matches) {
+    document.getElementById('install-banner').classList.add('show');
+  }
+});
+
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('install-banner').classList.remove('show');
+  });
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.remove('show');
+});
+
+// ── Service Worker ────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    swReg = reg;
+    console.log('SW registrado');
+  }).catch(e => console.warn('SW error:', e));
+}
+
+// ── Notifications ─────────────────────────────────────
+async function toggleNotifications() {
+  const btn = document.getElementById('notif-btn');
+  if (notifActive) {
+    // Turn off
+    notifActive = false;
+    btn.textContent = '🔔 Activar alertas';
+    btn.className = 'btn-notif off';
+    if (swReg && swReg.active) swReg.active.postMessage({ type: 'STOP_MONITORING' });
+    return;
+  }
+  // Request permission
+  if (!('Notification' in window)) {
+    alert('Tu browser no soporta notificaciones. Instalá la app primero.');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') {
+    alert('Permiso de notificaciones denegado. Habilitalo en la configuración del browser.');
+    return;
+  }
+  notifActive = true;
+  btn.textContent = '🔕 Alertas activas';
+  btn.className = 'btn-notif on';
+  // Tell SW to start monitoring
+  if (swReg && swReg.active) {
+    swReg.active.postMessage({ type: 'START_MONITORING', tf: TF, srLevels: SR });
+  }
+  // Also show a test notification
+  new Notification('✅ BTC Monitor activado', {
+    body: 'Vas a recibir alertas cuando haya señal LONG o SHORT.',
+    icon: 'icon-192.png'
+  });
+}
+
+// Update SW when SR levels change
+function syncSWState() {
+  if (swReg && swReg.active && notifActive) {
+    swReg.active.postMessage({ type: 'UPDATE_SR', srLevels: SR });
+  }
+}
+
+// ── Indicators ────────────────────────────────────────
+function ema(arr, p) {
+  if (arr.length < p) return arr.map(() => null);
+  const k = 2 / (p + 1);
+  let v = arr.slice(0, p).reduce((a, b) => a + b, 0) / p;
+  const r = new Array(p - 1).fill(null); r.push(v);
+  for (let i = p; i < arr.length; i++) { v = arr[i] * k + v * (1 - k); r.push(v); }
+  return r;
+}
+function calcMACD(cls) {
+  const e12 = ema(cls, 12), e26 = ema(cls, 26);
+  const ml = cls.map((_, i) => (e12[i] != null && e26[i] != null) ? +(e12[i] - e26[i]).toFixed(2) : null);
+  const valid = ml.filter(v => v != null);
+  if (valid.length < 9) return { ml, sig: ml.map(() => null), hist: ml.map(() => null) };
+  const sr = ema(valid, 9);
+  const sig = new Array(ml.length).fill(null); let si = 0;
+  for (let i = 0; i < ml.length; i++) if (ml[i] != null && si < sr.length) { sig[i] = sr[si] != null ? +sr[si].toFixed(2) : null; si++; }
+  const hist = ml.map((v, i) => (v != null && sig[i] != null) ? +(v - sig[i]).toFixed(2) : null);
+  return { ml, sig, hist };
+}
+
+// ── Fetch ─────────────────────────────────────────────
+async function load() {
+  setAlert('wait', '⏳ Conectando...', 'Obteniendo velas de Binance');
+  document.getElementById('src-badge').textContent = 'conectando...';
+  document.getElementById('src-badge').className = 'src-badge src-demo';
+  try {
+    const [r1, r4] = await Promise.all([
+      fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=500').then(r => r.json()),
+      fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=4h&limit=500').then(r => r.json())
+    ]);
+    D1 = r1.map(k => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+    D4 = r4.map(k => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+    price = D1[D1.length - 1].c;
+    document.getElementById('mp').textContent = '$' + fmt(price);
+    document.getElementById('src-badge').textContent = '● LIVE';
+    document.getElementById('src-badge').className = 'src-badge src-live';
+    analyze(); redraw();
+  } catch (e) {
+    document.getElementById('src-badge').textContent = '⚠ demo';
+    document.getElementById('src-badge').className = 'src-badge src-demo';
+    setAlert('wait', '⚠️ Sin conexión a Binance', 'Verificá tu internet. Usando datos de demostración.');
+    mock(); analyze(); redraw();
+  }
+  startTick();
+}
+
+function mock() {
+  const gen = (n, ms, p0 = 84000) => {
+    let p = p0, a = [];
+    for (let i = n; i >= 0; i--) {
+      const ch = (Math.random() - .47) * 1400;
+      const o = p, c = +(p + ch).toFixed(0);
+      a.push({ t: Date.now() - i * ms, o, h: +(Math.max(o, c) + Math.random() * 500).toFixed(0), l: +(Math.min(o, c) - Math.random() * 500).toFixed(0), c, v: 500 + Math.random() * 2000 });
+      p = c;
+    }
+    return a;
+  };
+  D1 = gen(99, 3600000); D4 = gen(99, 14400000);
+  price = D1[D1.length - 1].c;
+  document.getElementById('mp').textContent = '$' + fmt(price) + ' (demo)';
+}
+
+// ── Analysis ──────────────────────────────────────────
+function analyze() {
+  const src = TF === '1h' ? D1 : D4;
+  if (src.length < 30) return;
+  const n = src.length, last = src[n-1], prev = src[n-2], p2 = src[n-3] || prev;
+  const closes = src.map(c => c.c), vols = src.map(c => c.v || 0);
+  const { ml, sig, hist: ht } = calcMACD(closes);
+  const i = n - 1;
+  const e14 = ema(closes, 14), e21 = ema(closes, 21);
+
+  const bull = last.c >= last.o, bear = last.c < last.o;
+  document.getElementById('mc').textContent = bull ? '▲ Alcista' : '▼ Bajista';
+  document.getElementById('mc').style.color = bull ? 'var(--green)' : 'var(--red)';
+
+  const h4 = D4.length >= 8 ? D4.slice(-8) : D4;
+  const tUp = h4[h4.length-1].c > h4[0].c && h4[h4.length-1].l > h4[0].l;
+  const tDn = h4[h4.length-1].c < h4[0].c && h4[h4.length-1].h < h4[0].h;
+  document.getElementById('mt').textContent = tUp ? '▲ Alcista' : tDn ? '▼ Bajista' : '— Lateral';
+  document.getElementById('mt').style.color = tUp ? 'var(--green)' : tDn ? 'var(--red)' : 'var(--text2)';
+
+  const mv = ml[i], sv2 = sig[i], hv = ht[i], hp = ht[i-1];
+  if (mv != null) {
+    document.getElementById('mv').textContent = mv;
+    document.getElementById('sv').textContent = sv2 ?? '—';
+    document.getElementById('hv').textContent = hv ?? '—';
+    let st = 'Neutral';
+    if (mv > sv2 && hv > 0 && hv > (hp ?? 0)) st = '🟢 Momentum ↑';
+    else if (mv > sv2 && hv > 0) st = 'Alcista';
+    else if (mv < sv2 && hv < 0 && hv < (hp ?? 0)) st = '🔴 Momentum ↓';
+    else if (mv < sv2 && hv < 0) st = 'Bajista';
+    else if (mv > sv2) st = 'Cruce ↑';
+    else st = 'Cruce ↓';
+    document.getElementById('mstate').textContent = st;
+  }
+
+  const isHL = last.l > p2.l, isHH = last.h > prev.h;
+  const isLH = last.h < prev.h, isLL = last.l < prev.l;
+  // S/R detection — tighter tolerance (0.8%)
+  // LONG: price sitting on or retesting a support from above
+  const nearSup = SR.find(s => s.t === 'sup' && last.c >= s.p * 0.992 && last.c <= s.p * 1.008);
+  const retestSup = SR.find(s => s.t === 'sup' && last.l <= s.p * 1.003 && last.c > s.p);
+  const nearSupFinal = nearSup;
+
+  // SHORT: two cases
+  // Case A — classic resistance (price approaching from below)
+  const nearRes = SR.find(s => s.t === 'res' && last.c >= s.p * 0.992 && last.c <= s.p * 1.008);
+  const retestRes = SR.find(s => s.t === 'res' && last.h >= s.p * 0.997 && last.c < s.p);
+
+  // Case B — broken support now acting as resistance
+  // Price is below a marked support and retesting it from below
+  const brokenSup = SR.find(s => s.t === 'sup' &&
+    last.c < s.p &&           // price is now BELOW the support level
+    last.h >= s.p * 0.997 &&  // wick touched or reached the level
+    last.c < s.p * 0.997      // but closed below (rejection confirmed)
+  );
+  const brokenSupNear = SR.find(s => s.t === 'sup' &&
+    last.c < s.p &&                           // price is below
+    (s.p - last.c) / s.p < 0.015             // within 1.5% below the level
+  );
+
+  // Combine: resistance OR broken support
+  const nearResFinal = nearRes || !!brokenSupNear;
+  const retestResFinal = retestRes || !!brokenSup;
+  const body = Math.abs(last.c - last.o), rng = last.h - last.l || 1;
+  const lwk = Math.min(last.c, last.o) - last.l, uwk = last.h - Math.max(last.c, last.o);
+  const hammer = lwk > body * 1.5 && bull;
+  const star = uwk > body * 1.5 && bear;
+  const strongBull = bull && body / rng > 0.55;
+  const strongBear = bear && body / rng > 0.55;
+  const e14v = e14[i], e21v = e21[i];
+  const aboveEMA = e14v && e21v && last.c > e14v && last.c > e21v;
+  const belowEMA = e14v && e21v && last.c < e14v && last.c < e21v;
+  const sl14u = e14[i] && e14[i-3] && e14[i] > e14[i-3];
+  const sl14d = e14[i] && e14[i-3] && e14[i] < e14[i-3];
+  const sl21u = e21[i] && e21[i-3] && e21[i] > e21[i-3];
+  const sl21d = e21[i] && e21[i-3] && e21[i] < e21[i-3];
+  const xUp = ml[i] != null && sig[i] != null && ml[i-1] != null && sig[i-1] != null && ml[i-1] < sig[i-1] && ml[i] > sig[i];
+  const xDn = ml[i] != null && sig[i] != null && ml[i-1] != null && sig[i-1] != null && ml[i-1] > sig[i-1] && ml[i] < sig[i];
+  const histGreen = ht[i] != null && ht[i] > 0;
+  const histGrow = ht[i] != null && ht[i-1] != null && ht[i] > ht[i-1];
+  const histRed = ht[i] != null && ht[i] < 0;
+  const histRedGrow = ht[i] != null && ht[i-1] != null && ht[i] < ht[i-1];
+  const avgVol = vols.slice(-20).reduce((a, b) => a + b, 0) / 20;
+  const volSurge = vols[i] > avgVol * 1.2;
+
+  const LONG = {
+    '1. Estructura': [
+      { l: 'HL (Higher Low)', ok: isHL },
+      { l: 'HH roto o tendencia ↑', ok: isHH || tUp },
+    ],
+    '2. Nivel': [
+      { l: 'En soporte o resistencia rota', ok: !!nearSupFinal || !!retestSup },
+      { l: 'Retest del nivel', ok: !!retestSup },
+      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'sup') },
+    ],
+    '3. Vela': [
+      { l: 'Mecha inferior (rechazo)', ok: hammer },
+      { l: 'Cerró encima del nivel', ok: !!(nearSupFinal && last.c > nearSupFinal.p) },
+    ],
+    '4. EMAs 14/21': [
+      { l: 'Precio encima de EMA 14 y 21', ok: !!aboveEMA },
+      { l: 'EMAs inclinadas hacia arriba', ok: sl14u && sl21u },
+    ],
+    '5. MACD': [
+      { l: 'Histograma pasó a verde', ok: histGreen },
+      { l: 'Momentum aumentando', ok: histGrow },
+    ],
+    '6. Volumen': [
+      { l: 'Volumen mayor al promedio', ok: volSurge },
+    ],
+  };
+
+  const SHORT = {
+    '1. Estructura': [
+      { l: 'LH (Lower High)', ok: isLH },
+      { l: 'LL roto o tendencia ↓', ok: isLL || tDn },
+    ],
+    '2. Nivel': [
+      { l: 'Rompió soporte o en resistencia', ok: !!nearResFinal },
+      { l: 'Retest del nivel (rechazo)', ok: !!retestResFinal },
+      { l: 'Nivel marcado', ok: SR.some(s => s.t === 'res') || SR.some(s => s.t === 'sup') },
+    ],
+    '3. Vela': [
+      { l: 'Mecha superior (rechazo)', ok: star },
+      { l: 'Cerró debajo del nivel', ok: !!(retestResFinal || (nearRes && last.c < nearRes.p) || brokenSup) },
+    ],
+    '4. EMAs 14/21': [
+      { l: 'Precio debajo de EMA 14 y 21', ok: !!belowEMA },
+      { l: 'EMAs inclinadas hacia abajo', ok: sl14d && sl21d },
+    ],
+    '5. MACD': [
+      { l: 'Histograma rojo creciendo', ok: histRed && histRedGrow },
+      { l: 'Momentum bajista aumentando', ok: histRed && histRedGrow && ht[i-1] != null && Math.abs(ht[i]) > Math.abs(ht[i-1]) },
+    ],
+    '6. Volumen': [
+      { l: 'Volumen aumenta en la caída', ok: volSurge && bear },
+    ],
+  };
+
+  // Store for tick recompute
+  window._lastLONG = LONG;
+  window._lastSHORT = SHORT;
+
+  const ls = scoreWithTicks(LONG, 'long');
+  const ss = scoreWithTicks(SHORT, 'short');
+  renderCL('cll', '▲ Checklist LONG', LONG, ls, 'var(--green)', 'var(--green-text)', 'long');
+  renderCL('cls', '▼ Checklist SHORT', SHORT, ss, 'var(--red)', 'var(--red-text)', 'short');
+  fireAlert(ls, ss);
+}
+
+// ── Manual tick state ────────────────────────────────
+// Stores per-item overrides: key = "side-sectionIndex-itemIndex", value = true/false
+let tickState = {}; // true = ticked ON, false = ticked OFF (undefined = auto)
+let alertThreshold = 70;
+
+function onThr() {
+  alertThreshold = +document.getElementById('thr').value;
+  const el = document.getElementById('thr-val');
+  el.textContent = alertThreshold + '%';
+  el.style.color = alertThreshold >= 70 ? 'var(--green-text)' : alertThreshold >= 50 ? 'var(--warn-text)' : 'var(--red-text)';
+  recomputeAlerts();
+}
+
+function resetTicks() {
+  tickState = {};
+  recomputeAlerts();
+}
+
+function toggleTick(key, autoOk) {
+  if (tickState[key] === undefined) tickState[key] = true;
+  else if (tickState[key] === true)  tickState[key] = false;
+  else                                delete tickState[key];
+  recomputeAlerts();
+}
+
+function getTickValue(key, autoOk) {
+  const safeKey = key.replace(/'/g,"_");
+  if (tickState[safeKey] === undefined) return autoOk;
+  return tickState[safeKey];
+}
+
+function recomputeAlerts() {
+  // Re-read current checklist data and recompute scores with tick overrides
+  const src = TF === '1h' ? D1 : D4;
+  if (!src.length) return;
+  // Rebuild checklists using stored data
+  if (window._lastLONG && window._lastSHORT) {
+    const ls = scoreWithTicks(window._lastLONG, 'long');
+    const ss = scoreWithTicks(window._lastSHORT, 'short');
+    renderCL('cll', '▲ Checklist LONG', window._lastLONG, ls, 'var(--green)', 'var(--green-text)', 'long');
+    renderCL('cls', '▼ Checklist SHORT', window._lastSHORT, ss, 'var(--red)', 'var(--red-text)', 'short');
+    fireAlert(ls, ss);
+  }
+}
+
+function scoreWithTicks(cl, side) {
+  let ok = 0, total = 0;
+  Object.entries(cl).forEach(([sec, items], si) => {
+    items.forEach((it, ii) => {
+      total++;
+      const key = side + '-' + si + '-' + ii;
+      if (getTickValue(key, it.ok)) ok++;
+    });
+  });
+  return { ok, total, pct: Math.round(ok / total * 100) };
+}
+
+function fireAlert(ls, ss) {
+  const thr = alertThreshold;
+  if (ls.pct >= thr && ls.pct >= ss.pct) {
+    setAlert('long', '🟢 POSIBLE ENTRADA LONG — $' + fmt(price), ls.ok + '/' + ls.total + ' condiciones (' + ls.pct + '%) · Verificá en Binance');
+    push('LONG', ls, price);
+  } else if (ss.pct >= thr) {
+    setAlert('short', '🔴 POSIBLE ENTRADA SHORT — $' + fmt(price), ss.ok + '/' + ss.total + ' condiciones (' + ss.pct + '%) · Verificá en Binance');
+    push('SHORT', ss, price);
+  } else if (ls.pct >= thr * 0.7) {
+    setAlert('wait', '🟡 Setup LONG en formación — $' + fmt(price), ls.ok + '/' + ls.total + ' cond. (' + ls.pct + '%) · Esperá confirmación');
+  } else if (ss.pct >= thr * 0.7) {
+    setAlert('wait', '🟡 Setup SHORT en formación — $' + fmt(price), ss.ok + '/' + ss.total + ' cond. (' + ss.pct + '%) · Esperá confirmación');
+  } else {
+    setAlert('wait', '⏳ Sin setup claro — $' + fmt(price), 'LONG: ' + ls.pct + '%   SHORT: ' + ss.pct + '%');
+  }
+}
+
+function score(cl) {
+  let ok = 0, total = 0;
+  Object.values(cl).forEach(items => items.forEach(it => { total++; if (it.ok) ok++; }));
+  return { ok, total, pct: Math.round(ok / total * 100) };
+}
+
+function renderCL(id, title, cl, sc, color, textColor, side) {
+  let h = '<div class="cl-col-title" style="color:'+textColor+'">'+title+'</div>';
+  Object.entries(cl).forEach(([sec, items], si) => {
+    h += '<div class="cl-sec"><div class="cl-sec-name">'+sec+'</div>';
+    items.forEach((it, ii) => {
+      const key = side+'-'+si+'-'+ii;
+      const ticked = getTickValue(key, it.ok);
+      const forced = tickState[key] !== undefined;
+      const dotCls = ticked ? 'dok' : 'dno';
+      const txtCls = ticked ? 'ok-t' : 'no-t';
+      const unticked = !ticked && forced ? ' unticked' : (!ticked && !forced ? '' : '');
+      const striked = forced && !ticked ? ' unticked' : '';
+      const forcedBadge = forced ? (ticked
+        ? '<span style="font-size:9px;background:var(--green-bg);color:var(--green-text);padding:1px 5px;border-radius:4px;margin-left:4px">manual ✓</span>'
+        : '<span style="font-size:9px;background:var(--red-bg);color:var(--red-text);padding:1px 5px;border-radius:4px;margin-left:4px">manual ✗</span>')
+        : '';
+      const safeKey = key.replace(/'/g,"_");
+      h += '<div class="cl-item'+striked+'" onclick="toggleTick(\''+safeKey+'\','+it.ok+')">'
+        + '<div class="dot '+dotCls+'"></div>'
+        + '<span class="'+txtCls+'">'+it.l+forcedBadge+'</span>'
+        + '</div>';
+    });
+    h += '</div>';
+  });
+  h += '<div class="bar-bg"><div class="bar-fill" style="width:'+sc.pct+'%;background:'+color+'"></div></div>';
+  h += '<div class="score-row"><span>'+sc.ok+'/'+sc.total+' condiciones</span><span style="font-weight:700;color:'+textColor+'">'+sc.pct+'%</span></div>';
+  document.getElementById(id).innerHTML = h;
+}
+
+function setAlert(type, title, sub) {
+  document.getElementById('alert').className = 'alert alert-' + type;
+  document.getElementById('at').textContent = title;
+  document.getElementById('as').textContent = sub;
+}
+
+function push(side, sc, p) {
+  const key = side + Math.round(p / 200);
+  if (key === lastKey) return; lastKey = key;
+  const now = new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+  alertHist.unshift({ side, sc, p, now });
+  if (alertHist.length > 10) alertHist.pop();
+  document.getElementById('hl').innerHTML = alertHist.map(a => `<div class="hist-row">
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="bdg ${a.side === 'LONG' ? 'bdg-l' : 'bdg-s'}">${a.side === 'LONG' ? '▲' : '▼'} ${a.side}</span>
+      <span>$${fmt(a.p)}</span>
+      <span style="color:var(--text2)">${a.sc.ok}/${a.sc.total} cond.</span>
+    </div>
+    <span style="color:var(--text2)">${a.now}</span>
+  </div>`).join('');
+
+  // Notify via SW if active
+  if (notifActive && swReg && swReg.active) {
+    swReg.active.postMessage({ type: 'START_MONITORING', tf: TF, srLevels: SR });
+  }
+  // Also direct notification if app is open
+  if (notifActive && Notification.permission === 'granted') {
+    const isLong = side === 'LONG';
+    new Notification(isLong ? '🟢 Señal LONG — BTC' : '🔴 Señal SHORT — BTC', {
+      body: `$${fmt(p)} · ${sc.ok}/${sc.total} condiciones (${sc.pct}%) · Verificá en Binance`,
+      icon: 'icon-192.png',
+      tag: 'btc-signal',
+      renotify: true
+    });
+  }
+}
+
+// ── Charts ────────────────────────────────────────────
+function redraw() {
+  const src = TF === '1h' ? D1 : D4;
+  if (!src.length) return;
+  document.getElementById('clabel').textContent = `Velas BTC ${TF.toUpperCase()} (${src.length} velas)`;
+  drawCandles(src);
+  const { ml, sig, hist } = calcMACD(src.map(c => c.c));
+  drawMACD(src, ml, sig, hist);
+}
+
+// ── Zoom & Pan ────────────────────────────────────────
+let zC = 100;    // candles visible
+let zP = 1.0;    // price range multiplier
+let pOff = 0;    // pan: candles back from latest
+let pPrice = 0;  // pan: price offset
+
+function zH(dir) { // horizontal zoom
+  zC = Math.max(20, Math.min(500, zC + dir * 20));
+  document.getElementById('zlabel').textContent = zC;
+  // keep pan valid after zoom change
+  const src2 = TF==='1h'?D1:D4;
+  if(src2.length) pOff = Math.min(pOff, Math.max(0, src2.length - zC));
+  redraw();
+}
+function zV(dir) { // vertical zoom
+  zP = Math.max(0.1, Math.min(3.0, +(zP + dir * 0.15).toFixed(2)));
+  redraw();
+}
+function zReset() { zC=100; zP=1.0; pOff=0; pPrice=0; document.getElementById('zlabel').textContent=100; redraw(); }
+
+// drag state
+let drag=false, dX=0, dY=0, dPOff=0, dPPrice=0, lastStep=1, lastRng=1;
+
+function drawCandles(src) {
+  const cv = document.getElementById('cc');
+  cv.width = cv.parentElement.clientWidth;
+  cv.height = window.innerWidth < 600 ? 300 : 220;
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height, pL = 66, pR = 12, pT = 10, pB = 24;
+  const cW = W - pL - pR, cH = H - pT - pB;
+  const closes = src.map(c => c.c);
+  const e14v = ema(closes, 14), e21v = ema(closes, 21);
+  const visibleN = Math.min(zC, src.length);
+  const maxPan = Math.max(0, src.length - visibleN);
+  const safePan = Math.max(0, Math.min(Math.round(pOff), maxPan));
+  const endIdx = src.length - safePan;
+  const startIdx = Math.max(0, endIdx - visibleN);
+  const sl = src.slice(startIdx, endIdx);
+  const off = startIdx;
+  const n = sl.length;
+  const rawMin = Math.min(...sl.map(c=>c.l)), rawMax = Math.max(...sl.map(c=>c.h));
+  const rawRng = rawMax - rawMin || 1;
+  const mid = (rawMin + rawMax) / 2 + pPrice;
+  const rng = rawRng * zP;
+  const minP = mid - rng/2, maxP = mid + rng/2;
+  lastRng = rng;
+  const pY = p => pT + cH - (p - minP) / rng * cH;
+  const dark = window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const tc = dark ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.45)';
+  const gc = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+  ctx.clearRect(0, 0, W, H);
+  for (let k = 0; k <= 5; k++) {
+    const p = minP + rng * (k / 5), y = pY(p);
+    ctx.strokeStyle = gc; ctx.lineWidth = .5;
+    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(W - pR, y); ctx.stroke();
+    ctx.fillStyle = tc; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText('$' + fmt(p), pL - 4, y + 3);
+  }
+  SR.forEach(s => {
+    const y = pY(s.p); if (y < pT - 10 || y > pT + cH + 10) return;
+    ctx.strokeStyle = s.t === 'sup' ? 'rgba(29,158,117,.75)' : 'rgba(216,90,48,.75)';
+    ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(W - pR, y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = s.t === 'sup' ? '#1D9E75' : '#D85A30';
+    ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText((s.t === 'sup' ? 'S ' : 'R ') + '$' + fmt(s.p), pL + 4, y - 4);
+  });
+  const step = cW / n, cw = Math.max(2, Math.floor(step * .65));
+  if (document.getElementById('e14').checked) {
+    ctx.strokeStyle = '#EF9F27'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+    ctx.beginPath(); let st = false;
+    sl.forEach((_, idx) => { const v = e14v[off + idx]; if (v && v >= minP && v <= maxP) { const x = pL + idx * step + step / 2; st ? ctx.lineTo(x, pY(v)) : ctx.moveTo(x, pY(v)); st = true; } });
+    ctx.stroke();
+  }
+  if (document.getElementById('e21').checked) {
+    ctx.strokeStyle = '#378ADD'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+    ctx.beginPath(); let st = false;
+    sl.forEach((_, idx) => { const v = e21v[off + idx]; if (v && v >= minP && v <= maxP) { const x = pL + idx * step + step / 2; st ? ctx.lineTo(x, pY(v)) : ctx.moveTo(x, pY(v)); st = true; } });
+    ctx.stroke();
+  }
+  const lstep = Math.max(1, Math.floor(n / 8));
+  sl.forEach((c, idx) => {
+    const x = pL + idx * step + step / 2, bull = c.c >= c.o, col = bull ? '#1D9E75' : '#D85A30';
+    ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x, pY(c.h)); ctx.lineTo(x, pY(c.l)); ctx.stroke();
+    ctx.fillStyle = col;
+    const yO = pY(c.o), yC = pY(c.c);
+    ctx.fillRect(x - cw / 2, Math.min(yO, yC), cw, Math.max(Math.abs(yC - yO), 1));
+    if (idx % lstep === 0) {
+      const d = new Date(c.t);
+      const lb = TF === '1h' ? d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('es-UY', { month: 'short', day: 'numeric' });
+      ctx.fillStyle = tc; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(lb, x, H - 5);
+    }
+  });
+  const { ml, sig } = calcMACD(closes);
+  for (let k = off + 1; k < src.length; k++) {
+    const idx = k - off; if (idx >= n) continue;
+    const xU = ml[k-1] != null && sig[k-1] != null && ml[k] != null && sig[k] != null && ml[k-1] < sig[k-1] && ml[k] > sig[k];
+    const xD = ml[k-1] != null && sig[k-1] != null && ml[k] != null && sig[k] != null && ml[k-1] > sig[k-1] && ml[k] < sig[k];
+    const x = pL + idx * step + step / 2;
+    if (xU && pY(src[k].l) + 15 < H - pB) { ctx.fillStyle = '#1D9E75'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('▲', x, pY(src[k].l) + 14); }
+    if (xD && pY(src[k].h) - 8 > pT) { ctx.fillStyle = '#D85A30'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('▼', x, pY(src[k].h) - 6); }
+  }
+  lastStep = step; // save for drag calc
+
+  cv.onmousedown = e => {
+    drag=true; dX=e.clientX; dY=e.clientY; dPOff=pOff; dPPrice=pPrice;
+    cv.style.cursor='grabbing';
+  };
+  window.onmouseup = () => { drag=false; cv.style.cursor='default'; };
+
+  cv.onmousemove = e => {
+    if (drag) {
+      document.getElementById('ttp').style.display='none';
+      const src2 = TF==='1h'?D1:D4;
+      // pixels per candle based on current zoom level
+      const pxPerCandle = (cv.width - pL - pR) / Math.min(zC, src2.length);
+      // horizontal: negative deltaX = dragging right = go back in time = increase pOff
+      const deltaCandles = (dX - e.clientX) / pxPerCandle;
+      pOff = Math.max(0, Math.min(dPOff + deltaCandles, src2.length - visibleN));
+      // vertical
+      if (lastRng > 0) pPrice = dPPrice + (e.clientY - dY) * (lastRng / (cv.height - pT - pB));
+      redraw(); return;
+    }
+    const rect = cv.getBoundingClientRect(), idx = Math.floor((e.clientX - rect.left - pL) / step);
+    const tp = document.getElementById('ttp');
+    if (idx < 0 || idx >= n) { tp.style.display='none'; return; }
+    const c = sl[idx], d = new Date(c.t);
+    tp.style.display='block';
+    const chg = ((c.c-c.o)/c.o*100).toFixed(2);
+    tp.innerHTML = '<b>'+d.toLocaleDateString('es-UY',{weekday:'short',month:'short',day:'numeric'})+' '+d.toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit'})+'</b><br>O: $'+fmt(c.o)+' H: $'+fmt(c.h)+'<br>L: $'+fmt(c.l)+' C: $'+fmt(c.c)+'<br><span style="color:'+(c.c>=c.o?'var(--green)':'var(--red)')+'">'+( chg>0?'+':'')+chg+'%</span>';
+  };
+  cv.onmouseleave = () => { if(!drag) document.getElementById('ttp').style.display='none'; };
+
+  cv.onwheel = e => {
+    e.preventDefault();
+    if (e.shiftKey) { zV(e.deltaY<0?-1:1); } else { zH(e.deltaY<0?-1:1); }
+  };
+
+  // Touch: one finger = pan, two fingers = zoom
+  let lastTX=null, pinchD=null, touchMoved=false;
+  cv.ontouchstart = e => {
+    touchMoved=false; lastTX=null;
+    if(e.touches.length===2){
+      const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+      pinchD=Math.sqrt(dx*dx+dy*dy);
+    }
+  };
+  cv.ontouchmove = e => {
+    e.preventDefault();
+    if(e.touches.length===1){
+      const curX = e.touches[0].clientX;
+      if(lastTX === null){ lastTX = curX; return; }
+      const delta = lastTX - curX; // positive = dragging left = go back in time
+      if(!touchMoved && Math.abs(delta) < 4){ return; }
+      touchMoved=true;
+      const src2=TF==='1h'?D1:D4;
+      const pxPerCandleT = (cv.width - pL - pR) / Math.min(zC, src2.length);
+      pOff = Math.max(0, Math.min(pOff + delta / pxPerCandleT, src2.length - zC));
+      lastTX = curX;
+      redraw();
+    }
+    if(e.touches.length===2&&pinchD){
+      const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+      const d=Math.sqrt(dx*dx+dy*dy),diff=pinchD-d;
+      if(Math.abs(diff)>12){ zH(diff>0?1:-1); pinchD=d; }
+    }
+  };
+  cv.ontouchend = () => { pinchD=null; lastTX=null; touchMoved=false; };
+}
+
+function drawMACD(src, ml, sig, hist) {
+  const mc2 = document.getElementById('mc2');
+  mc2.height = window.innerWidth < 600 ? 140 : 90;
+  const labels = src.map(c => { const d = new Date(c.t); return d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }); });
+  if (MC) { MC.destroy(); MC = null; }
+  MC = new Chart(document.getElementById('mc2').getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { type: 'bar', label: 'Histograma', data: hist, backgroundColor: hist.map(v => v == null ? 'transparent' : v >= 0 ? 'rgba(29,158,117,.85)' : 'rgba(216,90,48,.85)'), order: 3 },
+      { type: 'line', label: 'MACD', data: ml, borderColor: '#378ADD', borderWidth: 1.5, pointRadius: 0, fill: false, tension: .3, order: 1 },
+      { type: 'line', label: 'Señal', data: sig, borderColor: '#EF9F27', borderWidth: 1.5, pointRadius: 0, fill: false, tension: .3, order: 2 }
+    ]},
+    options: { responsive: true, animation: false, plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 12 } } }, scales: { x: { ticks: { maxTicksLimit: 8, font: { size: 10 } }, grid: { display: false } }, y: { ticks: { font: { size: 10 } }, grid: { color: 'rgba(128,128,128,.08)' } } } }
+  });
+}
+
+function setTF(tf) {
+  TF = tf;
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tf-' + tf).classList.add('active');
+  analyze(); redraw();
+  if (notifActive && swReg && swReg.active) swReg.active.postMessage({ type: 'START_MONITORING', tf: TF, srLevels: SR });
+}
+
+function addSR() {
+  const p = parseFloat(document.getElementById('srp').value);
+  const t = document.querySelector('input[name="srt"]:checked').value;
+  if (isNaN(p) || p <= 0) return;
+  SR.push({ p, t });
+  document.getElementById('srp').value = '';
+  renderSR(); analyze(); redraw(); syncSWState();
+}
+function rmSR(i) { SR.splice(i, 1); renderSR(); analyze(); redraw(); syncSWState(); }
+function renderSR() {
+  document.getElementById('srl').innerHTML = SR.map((s, i) =>
+    `<span class="sr-tag ${s.t}" onclick="rmSR(${i})">${s.t === 'sup' ? '▲' : '▼'} $${fmt(s.p)} ×</span>`
+  ).join('');
+}
+
+function startTick() {
+  if (tickI) clearInterval(tickI); tick = 120;
+  tickI = setInterval(() => {
+    tick--;
+    const m = Math.floor(tick / 60), s = tick % 60;
+    document.getElementById('mtimer').textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    if (tick <= 0) load();
+  }, 1000);
+}
+
+window.addEventListener('resize', () => redraw());
+load();
+</script>
+</body>
+</html>
