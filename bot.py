@@ -26,33 +26,46 @@ def send(msg):
 def fetch_candles(interval, limit=100):
     # Try Binance first
     try:
-        url = f"https://api.binance.com/api/v3/klines"
-        params = {"symbol": "BTCUSDT", "interval": interval, "limit": limit}
-        r = requests.get(url, params=params, timeout=10)
+        r = requests.get("https://api.binance.com/api/v3/klines",
+            params={"symbol": "BTCUSDT", "interval": interval, "limit": limit}, timeout=10)
         if r.ok:
             data = r.json()
             if isinstance(data, list) and len(data) > 0:
                 print(f"[{now()}] Usando Binance ✅")
                 return [{"t": k[0], "o": float(k[1]), "h": float(k[2]),
-                         "l": float(k[3]), "c": float(k[4]), "v": float(k[5])}
-                        for k in data]
+                         "l": float(k[3]), "c": float(k[4]), "v": float(k[5])} for k in data]
     except Exception as e:
-        print(f"[{now()}] Binance falló: {e}, usando CryptoCompare...")
+        print(f"[{now()}] Binance falló: {e}")
 
-    # Fallback to CryptoCompare
+    # Try Kraken
+    try:
+        interval_map = {"1h": 60, "4h": 240}
+        kraken_interval = interval_map.get(interval, 60)
+        r = requests.get("https://api.kraken.com/0/public/OHLC",
+            params={"pair": "XBTUSD", "interval": kraken_interval, "count": limit}, timeout=10)
+        if r.ok:
+            data = r.json()
+            if not data.get("error"):
+                raw = list(data["result"].values())[0]
+                raw = raw[-limit:]
+                print(f"[{now()}] Usando Kraken ✅")
+                return [{"t": int(k[0])*1000, "o": float(k[1]), "h": float(k[2]),
+                         "l": float(k[3]), "c": float(k[4]), "v": float(k[6])} for k in raw]
+    except Exception as e:
+        print(f"[{now()}] Kraken falló: {e}")
+
+    # Fallback CryptoCompare
     aggregate = {"1h": 1, "4h": 4}.get(interval, 1)
-    url = "https://min-api.cryptocompare.com/data/v2/histohour"
-    params = {"fsym": "BTC", "tsym": "USD", "limit": limit, "aggregate": aggregate}
-    r = requests.get(url, params=params, timeout=15)
+    r = requests.get("https://min-api.cryptocompare.com/data/v2/histohour",
+        params={"fsym": "BTC", "tsym": "USD", "limit": limit, "aggregate": aggregate}, timeout=15)
     r.raise_for_status()
     data = r.json()
     if data.get("Response") != "Success":
         raise Exception(f"CryptoCompare error: {data.get('Message')}")
-    raw = data["Data"]["Data"]
     print(f"[{now()}] Usando CryptoCompare ✅")
     return [{"t": k["time"]*1000, "o": k["open"], "h": k["high"],
              "l": k["low"], "c": k["close"], "v": k["volumefrom"]}
-            for k in raw if k["open"] > 0]
+            for k in data["Data"]["Data"] if k["open"] > 0]
 
 def ema(arr, p):
     if len(arr) < p: return [None]*len(arr)
