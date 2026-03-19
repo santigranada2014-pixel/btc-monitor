@@ -24,6 +24,22 @@ def send(msg):
         return False
 
 def fetch_candles(interval, limit=100):
+    # Try Binance first
+    try:
+        url = f"https://api.binance.com/api/v3/klines"
+        params = {"symbol": "BTCUSDT", "interval": interval, "limit": limit}
+        r = requests.get(url, params=params, timeout=10)
+        if r.ok:
+            data = r.json()
+            if isinstance(data, list) and len(data) > 0:
+                print(f"[{now()}] Usando Binance ✅")
+                return [{"t": k[0], "o": float(k[1]), "h": float(k[2]),
+                         "l": float(k[3]), "c": float(k[4]), "v": float(k[5])}
+                        for k in data]
+    except Exception as e:
+        print(f"[{now()}] Binance falló: {e}, usando CryptoCompare...")
+
+    # Fallback to CryptoCompare
     aggregate = {"1h": 1, "4h": 4}.get(interval, 1)
     url = "https://min-api.cryptocompare.com/data/v2/histohour"
     params = {"fsym": "BTC", "tsym": "USD", "limit": limit, "aggregate": aggregate}
@@ -33,6 +49,7 @@ def fetch_candles(interval, limit=100):
     if data.get("Response") != "Success":
         raise Exception(f"CryptoCompare error: {data.get('Message')}")
     raw = data["Data"]["Data"]
+    print(f"[{now()}] Usando CryptoCompare ✅")
     return [{"t": k["time"]*1000, "o": k["open"], "h": k["high"],
              "l": k["low"], "c": k["close"], "v": k["volumefrom"]}
             for k in raw if k["open"] > 0]
