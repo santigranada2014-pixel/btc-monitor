@@ -298,14 +298,13 @@ if ('serviceWorker' in navigator) {
 async function toggleNotifications() {
   const btn = document.getElementById('notif-btn');
   if (notifActive) {
-    // Turn off
     notifActive = false;
+    try { localStorage.setItem('btc_notif', '0'); } catch(e) {}
     btn.textContent = '🔔 Activar alertas';
     btn.className = 'btn-notif off';
     if (swReg && swReg.active) swReg.active.postMessage({ type: 'STOP_MONITORING' });
     return;
   }
-  // Request permission
   if (!('Notification' in window)) {
     alert('Tu browser no soporta notificaciones. Instalá la app primero.');
     return;
@@ -316,13 +315,12 @@ async function toggleNotifications() {
     return;
   }
   notifActive = true;
+  try { localStorage.setItem('btc_notif', '1'); } catch(e) {}
   btn.textContent = '🔕 Alertas activas';
   btn.className = 'btn-notif on';
-  // Tell SW to start monitoring
   if (swReg && swReg.active) {
     swReg.active.postMessage({ type: 'START_MONITORING', tf: TF, srLevels: SR });
   }
-  // Also show a test notification
   new Notification('✅ BTC Monitor activado', {
     body: 'Vas a recibir alertas cuando haya señal LONG o SHORT.',
     icon: 'icon-192.png'
@@ -437,8 +435,9 @@ function analyze() {
   const isHL = last.l > p2.l, isHH = last.h > prev.h;
   const isLH = last.h < prev.h, isLL = last.l < prev.l;
   // S/R detection — tighter tolerance (0.8%)
-  // LONG: price sitting on or retesting a support from above
-  const nearSup = SR.find(s => s.t === 'lvl' && last.c >= s.p * 0.992 && last.c <= s.p * 1.008);
+  // LONG: price sitting ON or ABOVE a level (within 0.8% above)
+  const nearSup = SR.find(s => s.t === 'lvl' && last.c >= s.p && last.c <= s.p * 1.008);
+  // retestSup: wick touched level from above, candle closed above
   const retestSup = SR.find(s => s.t === 'lvl' && last.l <= s.p * 1.003 && last.c > s.p);
   const nearSupFinal = nearSup;
 
@@ -505,7 +504,7 @@ function analyze() {
     ],
     '3. Vela': [
       { l: 'Mecha inferior (rechazo)', ok: hammer },
-      { l: 'Cerró encima del nivel', ok: !!(nearSupFinal && last.c > nearSupFinal.p) },
+      { l: 'Cerró encima del nivel', ok: !!(nearSupFinal && prev.c > nearSupFinal.p) },
     ],
     '4. EMAs 14/21': [
       { l: 'Precio encima de EMA 14 y 21', ok: !!aboveEMA },
@@ -532,7 +531,7 @@ function analyze() {
     ],
     '3. Vela': [
       { l: 'Mecha superior (rechazo)', ok: star },
-      { l: 'Cerró debajo del nivel', ok: !!closedBelowSup || !!(brokenSup) },
+      { l: 'Cerró debajo del nivel', ok: !!(closedBelowSup && prev.c < closedBelowSup.p) || !!(brokenSup) },
     ],
     '4. EMAs 14/21': [
       { l: 'Precio debajo de EMA 14 y 21', ok: !!belowEMA },
@@ -947,7 +946,17 @@ function startTick() {
 }
 
 window.addEventListener('resize', () => redraw());
-load();
+load().then(() => {
+  // Restore notification state if it was active before
+  try {
+    if (localStorage.getItem('btc_notif') === '1' && Notification.permission === 'granted') {
+      notifActive = true;
+      const btn = document.getElementById('notif-btn');
+      btn.textContent = '🔕 Alertas activas';
+      btn.className = 'btn-notif on';
+    }
+  } catch(e) {}
+});
 </script>
 </body>
 </html>
