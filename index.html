@@ -479,12 +479,22 @@ function analyze() {
   const prevHammer = plwk > pbody * 1.2 && pbull;
   const prevStar   = puwk > pbody * 1.2 && pbear;
 
-  // Check vela 2 atrás (n-3) — la de rechazo antes de la confirmación
-  const p2bull = p2.c >= p2.o, p2bear = p2.c < p2.o;
-  const p2body = Math.abs(p2.c - p2.o);
-  const p2lwk  = Math.min(p2.c, p2.o) - p2.l, p2uwk = p2.h - Math.max(p2.c, p2.o);
-  const p2Hammer = p2lwk > p2body * 1.2 && p2bull;
-  const p2Star   = p2uwk > p2body * 1.2 && p2bear;
+  // Mecha inferior — solo si la vela tocó el nivel desde arriba (LONG)
+  const hammerNearLevel = SR.length > 0 && (
+    (hammer && SR.some(s => last.l <= s.p * 1.01 && last.c >= s.p)) ||
+    (prevHammer && SR.some(s => prev.l <= s.p * 1.01 && prev.c >= s.p)) ||
+    (p2Hammer && SR.some(s => p2.l <= s.p * 1.01 && p2.c >= s.p))
+  );
+  // Si no hay nivel marcado, usar la detección simple
+  const hammerFinal = SR.length > 0 ? hammerNearLevel : (hammer || prevHammer || p2Hammer);
+
+  // Mecha superior — solo si la vela tocó el nivel desde abajo (SHORT)
+  const starNearLevel = SR.length > 0 && (
+    (star && SR.some(s => last.h >= s.p * 0.99 && last.c <= s.p)) ||
+    (prevStar && SR.some(s => prev.h >= s.p * 0.99 && prev.c <= s.p)) ||
+    (p2Star && SR.some(s => p2.h >= s.p * 0.99 && p2.c <= s.p))
+  );
+  const starFinal = SR.length > 0 ? starNearLevel : (star || prevStar || p2Star);
   const strongBull = bull && body / rng > 0.55;
   const strongBear = bear && body / rng > 0.55;
   const e14v = e14[i], e21v = e21[i];
@@ -524,7 +534,7 @@ function analyze() {
       { l: 'Nivel marcado', ok: SR.some(s => s.t === 'lvl') },
     ],
     '3. Vela': [
-      { l: 'Mecha inferior (rechazo)', ok: hammer || prevHammer || p2Hammer },
+      { l: 'Mecha inferior (rechazo)', ok: hammerFinal },
       { l: 'Cerró encima del nivel', ok: !!(nearSupFinal && prev.c > nearSupFinal.p) },
     ],
     '4. EMAs 14/21': [
@@ -551,7 +561,7 @@ function analyze() {
       { l: 'Nivel marcado', ok: SR.some(s => s.t === 'lvl') || SR.some(s => s.t === 'lvl') },
     ],
     '3. Vela': [
-      { l: 'Mecha superior (rechazo)', ok: star || prevStar || p2Star },
+      { l: 'Mecha superior (rechazo)', ok: starFinal },
       { l: 'Cerró debajo del nivel', ok: !!(closedBelowSup && prev.c < closedBelowSup.p) || !!(brokenSup) },
     ],
     '4. EMAs 14/21': [
