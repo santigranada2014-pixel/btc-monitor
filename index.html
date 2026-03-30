@@ -467,6 +467,13 @@ function analyze() {
   const lwk = Math.min(last.c, last.o) - last.l, uwk = last.h - Math.max(last.c, last.o);
   const hammer = lwk > body * 1.5 && bull;
   const star = uwk > body * 1.5 && bear;
+
+  // Also check previous closed candle for hammer/star
+  const pbull = prev.c >= prev.o, pbear = prev.c < prev.o;
+  const pbody = Math.abs(prev.c - prev.o), prng = prev.h - prev.l || 1;
+  const plwk = Math.min(prev.c, prev.o) - prev.l, puwk = prev.h - Math.max(prev.c, prev.o);
+  const prevHammer = plwk > pbody * 1.5 && pbull;
+  const prevStar = puwk > pbody * 1.5 && pbear;
   const strongBull = bull && body / rng > 0.55;
   const strongBear = bear && body / rng > 0.55;
   const e14v = e14[i], e21v = e21[i];
@@ -503,7 +510,7 @@ function analyze() {
       { l: 'Nivel marcado', ok: SR.some(s => s.t === 'lvl') },
     ],
     '3. Vela': [
-      { l: 'Mecha inferior (rechazo)', ok: hammer },
+      { l: 'Mecha inferior (rechazo)', ok: hammer || prevHammer },
       { l: 'Cerró encima del nivel', ok: !!(nearSupFinal && prev.c > nearSupFinal.p) },
     ],
     '4. EMAs 14/21': [
@@ -530,7 +537,7 @@ function analyze() {
       { l: 'Nivel marcado', ok: SR.some(s => s.t === 'lvl') || SR.some(s => s.t === 'lvl') },
     ],
     '3. Vela': [
-      { l: 'Mecha superior (rechazo)', ok: star },
+      { l: 'Mecha superior (rechazo)', ok: star || prevStar },
       { l: 'Cerró debajo del nivel', ok: !!(closedBelowSup && prev.c < closedBelowSup.p) || !!(brokenSup) },
     ],
     '4. EMAs 14/21': [
