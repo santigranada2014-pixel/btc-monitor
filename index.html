@@ -481,9 +481,9 @@ function analyze() {
 
   // Mecha inferior — solo si la vela tocó el nivel desde arriba (LONG)
   const hammerNearLevel = SR.length > 0 && (
-    (hammer && SR.some(s => last.l <= s.p * 1.01 && last.c >= s.p)) ||
-    (prevHammer && SR.some(s => prev.l <= s.p * 1.01 && prev.c >= s.p)) ||
-    (p2Hammer && SR.some(s => p2.l <= s.p * 1.01 && p2.c >= s.p))
+    (lwk > body * 1.2 && SR.some(s => last.l <= s.p * 1.01 && last.c >= s.p * 0.995)) ||
+    (plwk > pbody * 1.2 && SR.some(s => prev.l <= s.p * 1.01 && prev.c >= s.p * 0.995)) ||
+    (p2lwk > p2body * 1.2 && SR.some(s => p2.l <= s.p * 1.01 && p2.c >= s.p * 0.995))
   );
   // Si no hay nivel marcado, usar la detección simple
   const hammerFinal = SR.length > 0 ? hammerNearLevel : (hammer || prevHammer || p2Hammer);
