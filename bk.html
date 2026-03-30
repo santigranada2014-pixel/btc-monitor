@@ -305,26 +305,31 @@ function scoreUnified(src, i, src4h) {
   if (i < 10) return { longPct: 0, shortPct: 0, longMandatory: false, shortMandatory: false };
   const last = src[i], prev = src[i-1], p2 = src[i-2];
 
-  // Auto S/R detection — unified levels (no sup/res distinction, position determines role)
+  // Auto S/R detection — unified levels
   const { supports, resistances } = detectSR(src, i, 60, 0.008, 2);
-  // Merge all levels
   const allLevels = [...supports, ...resistances];
 
-  // LONG: price near a level from above
-  const closestAbove = allLevels.filter(p => last.c >= p * 0.992).sort((a,b) => Math.abs(a-last.c)-Math.abs(b-last.c))[0];
-  const resSup = closestAbove && Math.abs(closestAbove - last.c) / last.c < 0.008;
-  const retestSup = closestAbove && last.l <= closestAbove * 1.003 && last.c > closestAbove;
-  const closedAboveLvl = resSup && last.c > closestAbove;
+  // LONG: retest across last 3 candles
+  const retestSup = allLevels.some(p =>
+    (last.l <= p * 1.005 && last.c > p * 0.995) ||
+    (prev.l <= p * 1.005 && prev.c > p * 0.995) ||
+    (p2.l   <= p * 1.005 && p2.c  > p * 0.995)
+  );
+  const nearSup = allLevels.some(p => last.c >= p && last.c <= p * 1.015);
+  const resSup = nearSup || retestSup;
+  const closedAboveLvl = allLevels.some(p => prev.c > p && prev.c <= p * 1.015);
 
-  // SHORT: price below a level (broken support acting as resistance)
-  const closestBelow = allLevels.filter(p => last.c < p).sort((a,b) => Math.abs(a-last.c)-Math.abs(b-last.c))[0];
-  const supBroken = !!closestBelow; // price is below ANY level = broken support
-  const brokenSupRetest = closestBelow && (closestBelow - last.c) / closestBelow < 0.015;
-  const brokenSupRejection = closestBelow && last.h >= closestBelow * 0.997 && last.c < closestBelow * 0.997;
-  const closedBelowLvl = closestBelow && last.c < closestBelow; // price anywhere below level
+  // SHORT: broken support acting as resistance
+  const supBroken = allLevels.some(p => last.c < p);
+  const brokenSupRetest = allLevels.some(p =>
+    (last.h >= p * 0.997 && last.c < p) ||
+    (prev.h >= p * 0.997 && prev.c < p) ||
+    (p2.h   >= p * 0.997 && p2.c  < p)
+  );
+  const closedBelowLvl = allLevels.some(p => last.c < p);
 
   const closes = src.slice(0, i+1).map(c => c.c);
-  const vols = src.slice(0, i+1).map(c => c.v || 0);
+  const vols   = src.slice(0, i+1).map(c => c.v || 0);
   const { ml, sig, hist: ht } = calcMACD(closes);
   const ci = closes.length - 1;
   const e14 = ema(closes, 14), e21 = ema(closes, 21);
@@ -336,11 +341,30 @@ function scoreUnified(src, i, src4h) {
   const isHL = last.l > p2.l, isHH = last.h > prev.h;
   const isLH = last.h < prev.h, isLL = last.l < prev.l;
 
-  const bull = last.c >= last.o, bear = last.c < last.o;
-  const body = Math.abs(last.c - last.o), rng = last.h - last.l || 1;
-  const lwk = Math.min(last.c, last.o) - last.l, uwk = last.h - Math.max(last.c, last.o);
-  const hammer = lwk > body * 1.5 && bull;
-  const star  = uwk > body * 1.5 && bear;
+  // Candle vars for last, prev, p2
+  const body  = Math.abs(last.c - last.o) || 1;
+  const lwk   = Math.min(last.c, last.o) - last.l;
+  const uwk   = last.h - Math.max(last.c, last.o);
+  const pbody = Math.abs(prev.c - prev.o) || 1;
+  const plwk  = Math.min(prev.c, prev.o) - prev.l;
+  const puwk  = prev.h - Math.max(prev.c, prev.o);
+  const p2body = Math.abs(p2.c - p2.o) || 1;
+  const p2lwk  = Math.min(p2.c, p2.o) - p2.l;
+  const p2uwk  = p2.h - Math.max(p2.c, p2.o);
+
+  // Hammer: long lower wick near level (any direction)
+  const hammerFinal = allLevels.some(p =>
+    (lwk  > body  * 1.2 && last.l <= p * 1.01 && last.c >= p * 0.995) ||
+    (plwk > pbody * 1.2 && prev.l <= p * 1.01 && prev.c >= p * 0.995) ||
+    (p2lwk > p2body * 1.2 && p2.l <= p * 1.01 && p2.c  >= p * 0.995)
+  );
+
+  // Star: long upper wick near level, closed below (SHORT)
+  const starFinal = allLevels.some(p =>
+    (uwk  > body  * 1.2 && last.h >= p * 0.995 && last.c < p) ||
+    (puwk > pbody * 1.2 && prev.h >= p * 0.995 && prev.c < p) ||
+    (p2uwk > p2body * 1.2 && p2.h >= p * 0.995 && p2.c < p)
+  );
 
   const e14v = e14[ci], e21v = e21[ci];
   const aboveEMA = e14v && e21v && last.c > e14v && last.c > e21v;
@@ -356,33 +380,32 @@ function scoreUnified(src, i, src4h) {
   const histRedGrow = ht[ci] != null && ht[ci-1] != null && ht[ci] < ht[ci-1];
   const histMomBear = histRed && histRedGrow && ht[ci-1] != null && Math.abs(ht[ci]) > Math.abs(ht[ci-1]);
 
-  // Volume: check last 3 candles (breakout candle may not be current)
+  // Volume: last 3 candles
   const avgVol = vols.slice(-50).reduce((a,b)=>a+b,0)/Math.min(vols.length,50);
   const recentVols = vols.slice(-3);
-  const volSurge = recentVols.some(v => v > avgVol * 1.2);
-  const recentSrc = src.slice(Math.max(0, i-2), i+1);
-  const volSurgeBear = recentSrc.some((c, idx) => c.c < c.o && recentVols[idx] > avgVol * 1.2);
+  const recentSrc  = src.slice(Math.max(0, i-2), i+1);
+  const volSurgeBull = recentSrc.some((c, idx) => c.c >= c.o && recentVols[idx] > avgVol * 1.2);
+  const volSurgeBear = recentSrc.some((c, idx) => c.c < c.o  && recentVols[idx] > avgVol * 1.2);
 
-  // 12-item checklist — matches monitor exactly
   const LONG = [
     isHL, isHH || tUp,
-    resSup || retestSup, retestSup, allLevels.length > 0,
-    hammer, closedAboveLvl,
+    resSup, retestSup, allLevels.length > 0,
+    hammerFinal, closedAboveLvl,
     !!aboveEMA, sl14u && sl21u,
     histGreen, histGrow,
-    volSurge
+    volSurgeBull
   ];
   const SHORT = [
     isLH, isLL || tDn,
-    supBroken || brokenSupRetest, brokenSupRetest || brokenSupRejection, allLevels.length > 0,
-    star, closedBelowLvl,
+    supBroken, brokenSupRetest, allLevels.length > 0,
+    starFinal, closedBelowLvl,
     !!belowEMA, sl14d && sl21d,
     histRed && histRedGrow, histMomBear,
     volSurgeBear
   ];
 
-  const longMandatory  = (resSup || retestSup) && hammer;
-  const shortMandatory = (supBroken || brokenSupRetest) && star;
+  const longMandatory  = resSup && hammerFinal;
+  const shortMandatory = supBroken && starFinal;
 
   return {
     longPct:  Math.round(LONG.filter(Boolean).length  / LONG.length  * 100),
