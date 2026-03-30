@@ -480,6 +480,12 @@ function analyze() {
   const prevStar   = puwk > pbody * 1.2 && pbear;
 
   // Mecha inferior — solo si la vela tocó el nivel desde arriba (LONG)
+  const p2lwk  = Math.min(p2.c, p2.o) - p2.l;
+  const p2body = Math.abs(p2.c - p2.o) || 1;
+  const p2uwk  = p2.h - Math.max(p2.c, p2.o);
+  const p2bull = p2.c >= p2.o, p2bear = p2.c < p2.o;
+  const p2Hammer = p2lwk > p2body * 1.2 && p2bull;
+  const p2Star   = p2uwk > p2body * 1.2 && p2bear;
   const hammerNearLevel = SR.length > 0 && (
     (lwk > body * 1.2 && SR.some(s => last.l <= s.p * 1.01 && last.c >= s.p * 0.995)) ||
     (plwk > pbody * 1.2 && SR.some(s => prev.l <= s.p * 1.01 && prev.c >= s.p * 0.995)) ||
