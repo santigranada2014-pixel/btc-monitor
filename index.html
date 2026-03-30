@@ -435,11 +435,15 @@ function analyze() {
   const isHL = last.l > p2.l, isHH = last.h > prev.h;
   const isLH = last.h < prev.h, isLL = last.l < prev.l;
   // S/R detection — tighter tolerance (0.8%)
-  // LONG: price sitting ON or ABOVE a level (within 0.8% above)
-  const nearSup = SR.find(s => s.t === 'lvl' && last.c >= s.p && last.c <= s.p * 1.008);
-  // retestSup: wick touched level from above, candle closed above
-  const retestSup = SR.find(s => s.t === 'lvl' && last.l <= s.p * 1.003 && last.c > s.p);
-  const nearSupFinal = nearSup;
+  // LONG: price near level OR previous candles retested it
+  const nearSup = SR.find(s => s.t === 'lvl' && last.c >= s.p && last.c <= s.p * 1.015);
+  // retestSup: current OR previous candles had wick touching level, closed above
+  const retestSup = SR.find(s => s.t === 'lvl' && (
+    (last.l <= s.p * 1.005 && last.c > s.p) ||
+    (prev.l <= s.p * 1.005 && prev.c > s.p) ||
+    (p2.l  <= s.p * 1.005 && p2.c  > s.p)
+  ));
+  const nearSupFinal = nearSup || retestSup;
 
   // SHORT: two cases
   // Case A — classic resistance (price approaching from below)
@@ -479,8 +483,8 @@ function analyze() {
   const p2bull = p2.c >= p2.o, p2bear = p2.c < p2.o;
   const p2body = Math.abs(p2.c - p2.o);
   const p2lwk  = Math.min(p2.c, p2.o) - p2.l, p2uwk = p2.h - Math.max(p2.c, p2.o);
-  const p2Hammer = p2lwk > p2body * 1.2;
-  const p2Star   = p2uwk > p2body * 1.2;
+  const p2Hammer = p2lwk > p2body * 1.2 && p2bull;
+  const p2Star   = p2uwk > p2body * 1.2 && p2bear;
   const strongBull = bull && body / rng > 0.55;
   const strongBear = bear && body / rng > 0.55;
   const e14v = e14[i], e21v = e21[i];
