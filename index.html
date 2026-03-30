@@ -497,14 +497,17 @@ function analyze() {
   const histRed = ht[i] != null && ht[i] < 0;
   const histRedGrow = ht[i] != null && ht[i-1] != null && ht[i] < ht[i-1];
   const avgVol = vols.slice(-50).reduce((a, b) => a + b, 0) / Math.min(vols.length, 50);
-  // Volume surge: check current OR any of last 3 candles had high volume
   const recentVols = vols.slice(-3);
-  const volSurge = recentVols.some(v => v > avgVol * 1.2);
-  // For SHORT specifically: any of last 3 bearish candles had high volume
   const recentCandles = src.slice(-3);
-  const volSurgeBear = recentCandles.some((c, idx) => 
+  // LONG: any of last 3 bullish candles had high volume
+  const volSurgeBull = recentCandles.some((c, idx) =>
+    c.c >= c.o && recentVols[idx] > avgVol * 1.2
+  );
+  // SHORT: any of last 3 bearish candles had high volume
+  const volSurgeBear = recentCandles.some((c, idx) =>
     c.c < c.o && recentVols[idx] > avgVol * 1.2
   );
+  const volSurge = recentVols.some(v => v > avgVol * 1.2);
 
   const LONG = {
     '1. Estructura': [
@@ -529,7 +532,7 @@ function analyze() {
       { l: 'Momentum aumentando', ok: histGrow },
     ],
     '6. Volumen': [
-      { l: 'Volumen mayor al promedio', ok: volSurge },
+      { l: 'Volumen mayor al promedio', ok: volSurgeBull },
     ],
   };
 
