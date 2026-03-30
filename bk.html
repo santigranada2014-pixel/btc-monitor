@@ -125,8 +125,23 @@ canvas { width: 100% !important; display: block; }
     <input type="number" id="minscore" value="85" min="30" max="100" step="5">
   </div>
   <div class="ctrl-group">
-    <label>Capital por trade</label>
+    <label>Modo capital</label>
+    <select id="capital-mode" onchange="toggleCapitalMode()">
+      <option value="fixed">Fijo por trade</option>
+      <option value="pct">% de la cuenta</option>
+    </select>
+  </div>
+  <div class="ctrl-group" id="fixed-capital-group">
+    <label>Capital por trade $</label>
     <input type="number" id="capital" value="1000" min="100" step="100">
+  </div>
+  <div class="ctrl-group" id="pct-capital-group" style="display:none">
+    <label>Saldo inicial $</label>
+    <input type="number" id="account-balance" value="10000" min="100" step="100">
+  </div>
+  <div class="ctrl-group" id="pct-risk-group" style="display:none">
+    <label>Riesgo por trade %</label>
+    <input type="number" id="risk-pct" value="2" min="0.1" max="20" step="0.1">
   </div>
   <div><button class="btn-run" id="run-btn" onclick="runBacktest()">▶ Correr Backtest</button></div>
   <span class="src-badge src-demo" id="src-badge">sin datos</span>
@@ -420,14 +435,20 @@ function scoreV2(src, i, src4h) {
 } // end scoreV2
 
 // ── Backtest engine ───────────────────────────────────
-function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, capitalPerTrade) {
+function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, startCapital, riskPct) {
   const trades = [];
   const inTradeUntil = new Set();
+  let accountBalance = startCapital; // tracks current account for % mode
 
   for (let i = 26; i < candles.length - 1; i++) {
     if (inTradeUntil.has(i)) continue;
     const { longPct, shortPct, longMandatory, shortMandatory } = scoreCandle(candles, i, candles4h);
     const entryPrice = candles[i + 1].o;
+    // Dynamic position sizing: if riskPct mode, capital = account * riskPct / slPct
+    // So that slPct loss = riskPct of account
+    const capitalPerTrade = riskPct
+      ? accountBalance * (riskPct / 100) / (slPct / 100)
+      : startCapital;
 
     let side = null, score = 0;
     // Estándar: just percentage. Estricto: mandatory S/R + candle required
@@ -465,15 +486,26 @@ function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, capitalPe
       ? (exitPrice - entryPrice) / entryPrice * 100
       : (entryPrice - exitPrice) / entryPrice * 100;
     const pnlUSD = capitalPerTrade * pnlPct / 100;
+    accountBalance += pnlUSD; // update running balance
 
     trades.push({
       side, score, entryPrice, exitPrice, slPrice, tpPrice,
       entryIdx: i + 1, exitIdx, result,
       pnlPct: +pnlPct.toFixed(2), pnlUSD: +pnlUSD.toFixed(2),
-      entryTime: candles[i + 1].t, exitTime: candles[exitIdx].t
+      entryTime: candles[i + 1].t, exitTime: candles[exitIdx].t,
+      capitalUsed: +capitalPerTrade.toFixed(2),
+      balanceAfter: +accountBalance.toFixed(2)
     });
   }
   return trades;
+}
+
+// ── Capital mode toggle ──────────────────────────────
+function toggleCapitalMode() {
+  const mode = document.getElementById('capital-mode').value;
+  document.getElementById('fixed-capital-group').style.display = mode === 'fixed' ? '' : 'none';
+  document.getElementById('pct-capital-group').style.display  = mode === 'pct'   ? '' : 'none';
+  document.getElementById('pct-risk-group').style.display     = mode === 'pct'   ? '' : 'none';
 }
 
 // ── Main ──────────────────────────────────────────────
@@ -485,7 +517,11 @@ async function runBacktest() {
   const slPct = +document.getElementById('sl').value;
   const tpPct = +document.getElementById('tp').value;
   const minScore = +document.getElementById('minscore').value;
-  const capital = +document.getElementById('capital').value;
+  const mode = document.getElementById('capital-mode').value;
+  const capital = mode === 'pct'
+    ? +document.getElementById('account-balance').value
+    : +document.getElementById('capital').value;
+  const riskPct = mode === 'pct' ? +document.getElementById('risk-pct').value : null;
   const candlesPerDay = tf === '1h' ? 24 : 6;
   const limit = days * candlesPerDay + 60;
 
@@ -511,7 +547,7 @@ async function runBacktest() {
   console.log('Candles loaded:', allCandles.length, 'x', tf, '| 4h:', allCandles4h.length);
 
   try {
-    backtestTrades = runBacktestEngine(allCandles, allCandles4h, slPct, tpPct, minScore, capital);
+    backtestTrades = runBacktestEngine(allCandles, allCandles4h, slPct, tpPct, minScore, capital, riskPct);
     console.log('Trades found:', backtestTrades.length);
   } catch(err) {
     console.error('Engine error:', err);
@@ -523,7 +559,7 @@ async function runBacktest() {
   updateStats(backtestTrades, capital);
   renderTrades(backtestTrades);
   redrawChart();
-  drawEquity(backtestTrades, capital);
+  drawEquity(backtestTrades, capital, riskPct);
   btn.disabled = false; btn.textContent = '▶ Correr Backtest';
 }
 
@@ -726,23 +762,33 @@ function renderTrades(trades) {
 
 // ── Equity Curve ──────────────────────────────────────
 let EQ = null;
-function drawEquity(trades, startCapital) {
+function drawEquity(trades, startCapital, riskPct) {
   if (EQ) { EQ.destroy(); EQ = null; }
   if (!trades.length) return;
 
-  // Build equity curve — starts at capital, adds each trade's pnl
   const labels = ['Inicio'];
   const data = [startCapital];
   const colors = [];
-  let running = startCapital;
 
-  trades.forEach(t => {
-    running += t.pnlUSD;
-    const d = new Date(t.entryTime || t.exitTime);
-    labels.push(d.toLocaleDateString('es-UY', { month: 'short', day: 'numeric' }));
-    data.push(+running.toFixed(2));
-    colors.push(t.result === 'TP' ? 'rgba(29,158,117,.8)' : 'rgba(216,90,48,.8)');
-  });
+  if (riskPct && trades[0].balanceAfter !== undefined) {
+    // Use actual running balance from engine
+    trades.forEach(t => {
+      const d = new Date(t.exitTime);
+      labels.push(d.toLocaleDateString('es-UY', { month: 'short', day: 'numeric' }));
+      data.push(+t.balanceAfter.toFixed(2));
+      colors.push(t.result === 'TP' ? 'rgba(29,158,117,.8)' : 'rgba(216,90,48,.8)');
+    });
+  } else {
+    // Fixed capital — accumulate from startCapital
+    let running = startCapital;
+    trades.forEach(t => {
+      running += t.pnlUSD;
+      const d = new Date(t.exitTime);
+      labels.push(d.toLocaleDateString('es-UY', { month: 'short', day: 'numeric' }));
+      data.push(+running.toFixed(2));
+      colors.push(t.result === 'TP' ? 'rgba(29,158,117,.8)' : 'rgba(216,90,48,.8)');
+    });
+  }
 
   const maxVal = Math.max(...data);
   const minVal = Math.min(...data);
