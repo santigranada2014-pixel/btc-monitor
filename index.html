@@ -488,11 +488,11 @@ function analyze() {
   // Si no hay nivel marcado, usar la detección simple
   const hammerFinal = SR.length > 0 ? hammerNearLevel : (hammer || prevHammer || p2Hammer);
 
-  // Mecha superior — solo si la vela tocó el nivel desde abajo (SHORT)
+  // Mecha superior — vela tocó nivel desde abajo y rechazó (cerró debajo)
   const starNearLevel = SR.length > 0 && (
-    (star && SR.some(s => last.h >= s.p * 0.99 && last.c <= s.p)) ||
-    (prevStar && SR.some(s => prev.h >= s.p * 0.99 && prev.c <= s.p)) ||
-    (p2Star && SR.some(s => p2.h >= s.p * 0.99 && p2.c <= s.p))
+    (star && SR.some(s => last.h >= s.p * 0.995 && last.c < s.p)) ||
+    (prevStar && SR.some(s => prev.h >= s.p * 0.995 && prev.c < s.p)) ||
+    (p2Star && SR.some(s => p2.h >= s.p * 0.995 && p2.c < s.p))
   );
   const starFinal = SR.length > 0 ? starNearLevel : (star || prevStar || p2Star);
   const strongBull = bull && body / rng > 0.55;
