@@ -159,7 +159,7 @@ canvas { width: 100% !important; display: block; }
 <div class="card">
   <div class="card-title">
     <span id="chart-title">Velas BTC — señales del backtest</span>
-    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
       <div class="legend">
         <div class="leg-item"><div class="leg-dot" style="background:#1D9E75"></div>LONG</div>
         <div class="leg-item"><div class="leg-dot" style="background:#D85A30"></div>SHORT</div>
@@ -167,6 +167,12 @@ canvas { width: 100% !important; display: block; }
       <div class="ema-toggles">
         <label><input type="checkbox" id="e14" checked onchange="redrawChart()"> <span style="color:var(--amber);font-weight:700">EMA14</span></label>
         <label><input type="checkbox" id="e21" checked onchange="redrawChart()"> <span style="color:var(--blue);font-weight:700">EMA21</span></label>
+      </div>
+      <div style="display:flex;align-items:center;gap:3px">
+        <button class="zbtn" onclick="bzH(-1)">＋</button>
+        <span id="bzlabel" style="font-size:11px;color:var(--text2);min-width:32px;text-align:center">100</span>
+        <button class="zbtn" onclick="bzH(1)">－</button>
+        <button class="zbtn" onclick="bzReset()">↺</button>
       </div>
     </div>
   </div>
@@ -598,6 +604,12 @@ function redrawChart() {
   drawMACD(allCandles, ml, sig, hist);
 }
 
+// ── Backtester chart zoom/pan ─────────────────────────
+let bzC = 100, bpOff = 0, bDrag = false, bdX = 0, bdPOff = 0, bLastStep = 1;
+
+function bzH(dir) { bzC = Math.max(20, Math.min(2000, bzC + dir * 20)); document.getElementById('bzlabel').textContent = bzC; redrawChart(); }
+function bzReset() { bzC = 100; bpOff = 0; document.getElementById('bzlabel').textContent = 100; redrawChart(); }
+
 function drawCandles(src, trades) {
   const cv = document.getElementById('cc');
   cv.width = cv.parentElement.clientWidth; cv.height = 280;
@@ -606,9 +618,13 @@ function drawCandles(src, trades) {
   const cW = W - pL - pR, cH = H - pT - pB;
   const closes = src.map(c => c.c);
   const e14v = ema(closes, 14), e21v = ema(closes, 21);
-  const maxN = Math.floor(cW / 6);
-  const sl = src.slice(-Math.min(maxN, src.length));
-  const off = src.length - sl.length, n = sl.length;
+  const maxN = Math.min(bzC, src.length);
+  const maxPan = Math.max(0, src.length - maxN);
+  const safePan = Math.max(0, Math.min(Math.round(bpOff), maxPan));
+  const endIdx = src.length - safePan;
+  const sl = src.slice(Math.max(0, endIdx - maxN), endIdx);
+  const off = src.length - sl.length - safePan + (src.length - endIdx);
+  const n = sl.length;
   let minP = Math.min(...sl.map(c => c.l)), maxP = Math.max(...sl.map(c => c.h));
   trades.forEach(t => { if (t.entryIdx >= off) { minP = Math.min(minP, t.slPrice); maxP = Math.max(maxP, t.tpPrice); } });
   const rng = maxP - minP || 1;
@@ -699,7 +715,16 @@ function drawCandles(src, trades) {
     }
   });
 
+  cv.onmousedown = e => { bDrag=true; bdX=e.clientX; bdPOff=bpOff; cv.style.cursor='grabbing'; };
+  window.addEventListener('mouseup', () => { bDrag=false; cv.style.cursor='default'; });
+
   cv.onmousemove = e => {
+    if (bDrag) {
+      document.getElementById('ttp').style.display='none';
+      const pxPerCandle = (cW) / Math.min(bzC, src.length);
+      bpOff = Math.max(0, Math.min(bdPOff + (bdX - e.clientX) / pxPerCandle, src.length - bzC));
+      redrawChart(); return;
+    }
     const rect = cv.getBoundingClientRect(), idx = Math.floor((e.clientX - rect.left - pL) / step);
     const tp = document.getElementById('ttp');
     if (idx < 0 || idx >= n) { tp.style.display = 'none'; return; }
@@ -714,7 +739,21 @@ function drawCandles(src, trades) {
     tp.style.display = 'block';
     tp.innerHTML = `<b>${d.toLocaleDateString('es-UY', { weekday: 'short', month: 'short', day: 'numeric' })} ${d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' })}</b><br>O $${fmt(c.o)} H $${fmt(c.h)}<br>L $${fmt(c.l)} C $${fmt(c.c)}${extra}`;
   };
-  cv.onmouseleave = () => { document.getElementById('ttp').style.display = 'none'; };
+  cv.onmouseleave = () => { if(!bDrag) document.getElementById('ttp').style.display = 'none'; };
+  cv.onwheel = e => { e.preventDefault(); bzH(e.deltaY < 0 ? -1 : 1); };
+
+  // Touch pan
+  let btX = null;
+  cv.ontouchstart = e => { if(e.touches.length===1){ btX=e.touches[0].clientX; bdPOff=bpOff; } };
+  cv.ontouchmove = e => {
+    if(e.touches.length===1 && btX !== null){
+      e.preventDefault();
+      const pxPerCandle = cW / Math.min(bzC, src.length);
+      bpOff = Math.max(0, Math.min(bdPOff + (btX - e.touches[0].clientX) / pxPerCandle, src.length - bzC));
+      redrawChart();
+    }
+  };
+  cv.ontouchend = () => { btX = null; };
 }
 
 function drawMACD(src, ml, sig, hist) {
