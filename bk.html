@@ -709,28 +709,20 @@ function drawCandles(src, trades) {
     if (ei < 0 || ei >= n) return;
     const ex = pL + ei * step + step / 2;
     const isLong = t.side === 'LONG';
+    const tickW = Math.max(8, cw * 1.5); // short tick width
 
-    // Determine right edge for TP/SL lines (exit candle or chart edge)
-    const endX = (xi >= 0 && xi < n) ? pL + xi * step + step / 2 : W - pR;
-
-    // Draw TP dashed line from entry
+    // Short TP tick at entry
     const tpY = pY(t.tpPrice);
     if (tpY >= pT && tpY <= H - pB) {
-      ctx.strokeStyle = 'rgba(29,158,117,.45)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-      ctx.beginPath(); ctx.moveTo(ex, tpY); ctx.lineTo(endX, tpY); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(29,158,117,.7)'; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText('TP', ex + 3, tpY - 3);
+      ctx.strokeStyle = 'rgba(29,158,117,.6)'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(ex - tickW, tpY); ctx.lineTo(ex + tickW, tpY); ctx.stroke();
     }
 
-    // Draw SL dashed line from entry
+    // Short SL tick at entry
     const slY = pY(t.slPrice);
     if (slY >= pT && slY <= H - pB) {
-      ctx.strokeStyle = 'rgba(216,90,48,.45)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
-      ctx.beginPath(); ctx.moveTo(ex, slY); ctx.lineTo(endX, slY); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(216,90,48,.7)'; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'left';
-      ctx.fillText('SL', ex + 3, slY - 3);
+      ctx.strokeStyle = 'rgba(216,90,48,.6)'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(ex - tickW, slY); ctx.lineTo(ex + tickW, slY); ctx.stroke();
     }
 
     // Entry arrow
