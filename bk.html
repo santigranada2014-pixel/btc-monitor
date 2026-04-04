@@ -91,6 +91,23 @@ canvas { width: 100% !important; display: block; }
 .improve-item b { color: var(--text); }
 
 .footer { text-align: center; font-size: 11px; color: var(--text3); margin-top: 8px; padding-bottom: 20px; }
+
+/* Chart navigation controls */
+.chart-nav { display: flex; justify-content: center; align-items: center; gap: 6px; padding: 10px 0 4px; flex-wrap: wrap; }
+.chart-nav-group { display: flex; align-items: center; gap: 4px; background: var(--bg2); border-radius: var(--radius); padding: 3px; }
+.chart-nav-label { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; padding: 0 6px; }
+.nav-btn { 
+  min-width: 44px; min-height: 44px; 
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700; 
+  border: 1px solid var(--border2); border-radius: var(--radius); 
+  background: var(--bg); color: var(--text); 
+  cursor: pointer; user-select: none; -webkit-user-select: none;
+  transition: background .1s;
+}
+.nav-btn:active { background: var(--bg3); }
+.nav-btn-wide { min-width: 56px; font-size: 20px; }
+.nav-count { font-size: 13px; font-weight: 700; color: var(--text2); min-width: 40px; text-align: center; }
 </style>
 </head>
 <body>
@@ -169,17 +186,27 @@ canvas { width: 100% !important; display: block; }
         <label><input type="checkbox" id="e14" checked onchange="redrawChart()"> <span style="color:var(--amber);font-weight:700">EMA14</span></label>
         <label><input type="checkbox" id="e21" checked onchange="redrawChart()"> <span style="color:var(--blue);font-weight:700">EMA21</span></label>
       </div>
-      <div style="display:flex;align-items:center;gap:3px">
-        <button class="zbtn" onclick="bzH(-1)">＋</button>
-        <span id="bzlabel" style="font-size:11px;color:var(--text2);min-width:32px;text-align:center">100</span>
-        <button class="zbtn" onclick="bzH(1)">－</button>
-        <button class="zbtn" onclick="bzReset()">↺</button>
-      </div>
     </div>
   </div>
   <div class="chart-wrap">
     <div class="ttp" id="ttp"></div>
     <canvas id="cc" height="280"></canvas>
+  </div>
+  <div class="chart-nav">
+    <div class="chart-nav-group">
+      <span class="chart-nav-label">Nav</span>
+      <button class="nav-btn nav-btn-wide" onclick="bPan(10)">◀</button>
+      <button class="nav-btn" onclick="bPan(3)">‹</button>
+      <button class="nav-btn" onclick="bPan(-3)">›</button>
+      <button class="nav-btn nav-btn-wide" onclick="bPan(-10)">▶</button>
+    </div>
+    <div class="chart-nav-group">
+      <span class="chart-nav-label">Zoom</span>
+      <button class="nav-btn" onclick="bzH(-5)">＋</button>
+      <span class="nav-count" id="bzlabel">100</span>
+      <button class="nav-btn" onclick="bzH(5)">－</button>
+      <button class="nav-btn" onclick="bzReset()">↺</button>
+    </div>
   </div>
 </div>
 
@@ -608,8 +635,9 @@ function redrawChart() {
 // ── Backtester chart zoom/pan ─────────────────────────
 let bzC = 100, bpOff = 0, bDrag = false, bdX = 0, bdPOff = 0, bLastStep = 1, bCW = 0;
 
-function bzH(dir) { bzC = Math.max(20, Math.min(2000, bzC + dir * 20)); document.getElementById('bzlabel').textContent = bzC; redrawChart(); }
+function bzH(dir) { bzC = Math.max(20, Math.min(2000, bzC + dir * 4)); document.getElementById('bzlabel').textContent = bzC; redrawChart(); }
 function bzReset() { bzC = 100; bpOff = 0; document.getElementById('bzlabel').textContent = 100; redrawChart(); }
+function bPan(n) { bpOff = Math.max(0, Math.min(bpOff + n, allCandles.length - bzC)); redrawChart(); }
 
 function drawCandles(src, trades) {
   const cv = document.getElementById('cc');
