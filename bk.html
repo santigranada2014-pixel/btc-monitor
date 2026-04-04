@@ -652,11 +652,12 @@ function drawCandles(src, trades) {
   const maxPan = Math.max(0, src.length - maxN);
   const safePan = Math.max(0, Math.min(Math.round(bpOff), maxPan));
   const endIdx = src.length - safePan;
-  const sl = src.slice(Math.max(0, endIdx - maxN), endIdx);
-  const off = src.length - sl.length - safePan + (src.length - endIdx);
+  const startIdx = Math.max(0, endIdx - maxN);
+  const sl = src.slice(startIdx, endIdx);
+  const off = startIdx;
   const n = sl.length;
   let minP = Math.min(...sl.map(c => c.l)), maxP = Math.max(...sl.map(c => c.h));
-  trades.forEach(t => { if (t.entryIdx >= off) { minP = Math.min(minP, t.slPrice); maxP = Math.max(maxP, t.tpPrice); } });
+  trades.forEach(t => { if (t.entryIdx >= off && t.entryIdx < off + n) { minP = Math.min(minP, t.slPrice); maxP = Math.max(maxP, t.tpPrice); } });
   const rng = maxP - minP || 1;
   const pY = p => pT + cH - (p - minP) / rng * cH;
   const dark = window.matchMedia('(prefers-color-scheme:dark)').matches;
