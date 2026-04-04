@@ -61,6 +61,7 @@ h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
 .chart-wrap { position: relative; }
 .ttp { position: absolute; top: 36px; left: 60px; background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 7px 10px; font-size: 12px; pointer-events: none; z-index: 9; display: none; line-height: 1.7; }
 canvas { width: 100% !important; display: block; }
+#cc { touch-action: none; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; }
 .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); }
 .leg-dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -605,7 +606,7 @@ function redrawChart() {
 }
 
 // ── Backtester chart zoom/pan ─────────────────────────
-let bzC = 100, bpOff = 0, bDrag = false, bdX = 0, bdPOff = 0, bLastStep = 1;
+let bzC = 100, bpOff = 0, bDrag = false, bdX = 0, bdPOff = 0, bLastStep = 1, bCW = 0;
 
 function bzH(dir) { bzC = Math.max(20, Math.min(2000, bzC + dir * 20)); document.getElementById('bzlabel').textContent = bzC; redrawChart(); }
 function bzReset() { bzC = 100; bpOff = 0; document.getElementById('bzlabel').textContent = 100; redrawChart(); }
@@ -616,6 +617,7 @@ function drawCandles(src, trades) {
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height, pL = 70, pR = 14, pT = 14, pB = 26;
   const cW = W - pL - pR, cH = H - pT - pB;
+  bCW = cW;
   const closes = src.map(c => c.c);
   const e14v = ema(closes, 14), e21v = ema(closes, 21);
   const maxN = Math.min(bzC, src.length);
@@ -742,19 +744,62 @@ function drawCandles(src, trades) {
   cv.onmouseleave = () => { if(!bDrag) document.getElementById('ttp').style.display = 'none'; };
   cv.onwheel = e => { e.preventDefault(); bzH(e.deltaY < 0 ? -1 : 1); };
 
-  // Touch pan
-  let btX = null;
-  cv.ontouchstart = e => { if(e.touches.length===1){ btX=e.touches[0].clientX; bdPOff=bpOff; } };
-  cv.ontouchmove = e => {
-    if(e.touches.length===1 && btX !== null){
+}
+
+// ── Touch handlers (set up once, outside drawCandles) ──
+(function setupTouchHandlers() {
+  const cv = document.getElementById('cc');
+  let btX = null, pinchDist0 = null, pinchBzC0 = null;
+
+  cv.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      btX = e.touches[0].clientX;
+      bdPOff = bpOff;
       e.preventDefault();
-      const pxPerCandle = cW / Math.min(bzC, src.length);
-      bpOff = Math.max(0, Math.min(bdPOff + (btX - e.touches[0].clientX) / pxPerCandle, src.length - bzC));
+    } else if (e.touches.length === 2) {
+      // Pinch zoom start
+      btX = null;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchDist0 = Math.hypot(dx, dy);
+      pinchBzC0 = bzC;
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  cv.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && btX !== null) {
+      // Pan
+      const pxPerCandle = bCW / Math.min(bzC, allCandles.length);
+      bpOff = Math.max(0, Math.min(bdPOff + (btX - e.touches[0].clientX) / pxPerCandle, allCandles.length - bzC));
+      redrawChart();
+    } else if (e.touches.length === 2 && pinchDist0 !== null) {
+      // Pinch zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = pinchDist0 / dist; // spread = zoom in (fewer candles)
+      bzC = Math.max(20, Math.min(2000, Math.round(pinchBzC0 * scale)));
+      document.getElementById('bzlabel').textContent = bzC;
       redrawChart();
     }
-  };
-  cv.ontouchend = () => { btX = null; };
-}
+  }, { passive: false });
+
+  cv.addEventListener('touchend', e => {
+    if (e.touches.length === 0) {
+      btX = null;
+      pinchDist0 = null;
+      pinchBzC0 = null;
+    } else if (e.touches.length === 1) {
+      // Went from pinch to single finger — restart pan
+      pinchDist0 = null;
+      pinchBzC0 = null;
+      btX = e.touches[0].clientX;
+      bdPOff = bpOff;
+    }
+  }, { passive: false });
+})();
 
 function drawMACD(src, ml, sig, hist) {
   const labels = src.map(c => { const d = new Date(c.t); return d.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' }); });
