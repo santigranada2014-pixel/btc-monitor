@@ -729,13 +729,20 @@ function drawCandles(src, trades) {
     // Entry arrow
     ctx.fillStyle = isLong ? '#1D9E75' : '#D85A30';
     ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
-    if (isLong && pY(src[t.entryIdx].l) + 18 < H - pB) ctx.fillText('▲', ex, pY(src[t.entryIdx].l) + 17);
-    if (!isLong && pY(src[t.entryIdx].h) - 8 > pT) ctx.fillText('▼', ex, pY(src[t.entryIdx].h) - 7);
+    const entryArrowY = isLong ? pY(src[t.entryIdx].l) + 17 : pY(src[t.entryIdx].h) - 7;
+    if (isLong && pY(src[t.entryIdx].l) + 18 < H - pB) ctx.fillText('▲', ex, entryArrowY);
+    if (!isLong && pY(src[t.entryIdx].h) - 8 > pT) ctx.fillText('▼', ex, entryArrowY);
 
-    // Exit marker
+    // Dashed line from entry to exit
     if (xi >= 0 && xi < n) {
       const xx = pL + xi * step + step / 2;
       const exitY = pY(t.exitPrice);
+      ctx.strokeStyle = t.result === 'TP' ? 'rgba(29,158,117,.5)' : 'rgba(216,90,48,.5)';
+      ctx.lineWidth = 1.2; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(ex, entryArrowY); ctx.lineTo(xx, exitY); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Exit marker
       ctx.fillStyle = t.result === 'TP' ? '#1D9E75' : '#D85A30';
       ctx.beginPath(); ctx.arc(xx, exitY, 4, 0, Math.PI * 2); ctx.fill();
       ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
