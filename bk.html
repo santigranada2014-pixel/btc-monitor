@@ -143,6 +143,14 @@ canvas { width: 100% !important; display: block; }
     <input type="number" id="minscore" value="85" min="30" max="100" step="5">
   </div>
   <div class="ctrl-group">
+    <label>Fee ida+vuelta %</label>
+    <input type="number" id="fee" value="0.08" min="0" max="1" step="0.01">
+  </div>
+  <div class="ctrl-group">
+    <label>Slippage %</label>
+    <input type="number" id="slippage" value="0.05" min="0" max="1" step="0.01">
+  </div>
+  <div class="ctrl-group">
     <label>Modo capital</label>
     <select id="capital-mode" onchange="toggleCapitalMode()">
       <option value="fixed">Fijo por trade</option>
@@ -471,10 +479,11 @@ function scoreV2(src, i, src4h) {
 } // end scoreV2
 
 // ── Backtest engine ───────────────────────────────────
-function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, startCapital, riskPct) {
+function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, startCapital, riskPct, feePct, slippagePct) {
   const trades = [];
   const inTradeUntil = new Set();
   let accountBalance = startCapital; // tracks current account for % mode
+  const costPct = (feePct || 0) + (slippagePct || 0); // round-trip cost %
 
   for (let i = 26; i < candles.length - 1; i++) {
     if (inTradeUntil.has(i)) continue;
@@ -523,15 +532,19 @@ function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, startCapi
       result = p >= 0 ? 'TP' : 'SL';
     }
 
-    const pnlPct = side === 'LONG'
+    const rawPnlPct = side === 'LONG'
       ? (exitPrice - entryPrice) / entryPrice * 100
       : (entryPrice - exitPrice) / entryPrice * 100;
+    const pnlPct = rawPnlPct - costPct; // deduct fees + slippage
     const pnlUSD = capitalPerTrade * pnlPct / 100;
     accountBalance += pnlUSD; // update running balance
 
+    // Re-evaluate result after costs (a TP might become a loss)
+    const actualResult = pnlPct >= 0 ? 'TP' : 'SL';
+
     trades.push({
       side, score, entryPrice, exitPrice, slPrice, tpPrice,
-      entryIdx: i + 1, exitIdx, result,
+      entryIdx: i + 1, exitIdx, result: actualResult,
       pnlPct: +pnlPct.toFixed(2), pnlUSD: +pnlUSD.toFixed(2),
       entryTime: candles[i + 1].t, exitTime: candles[exitIdx].t,
       capitalUsed: +capitalPerTrade.toFixed(2),
@@ -558,6 +571,8 @@ async function runBacktest() {
   const slPct = +document.getElementById('sl').value;
   const tpPct = +document.getElementById('tp').value;
   const minScore = +document.getElementById('minscore').value;
+  const feePct = +document.getElementById('fee').value;
+  const slippagePct = +document.getElementById('slippage').value;
   const mode = document.getElementById('capital-mode').value;
   const capital = mode === 'pct'
     ? +document.getElementById('account-balance').value
@@ -588,7 +603,7 @@ async function runBacktest() {
   console.log('Candles loaded:', allCandles.length, 'x', tf, '| 4h:', allCandles4h.length);
 
   try {
-    backtestTrades = runBacktestEngine(allCandles, allCandles4h, slPct, tpPct, minScore, capital, riskPct);
+    backtestTrades = runBacktestEngine(allCandles, allCandles4h, slPct, tpPct, minScore, capital, riskPct, feePct, slippagePct);
     console.log('Trades found:', backtestTrades.length);
   } catch(err) {
     console.error('Engine error:', err);
@@ -596,7 +611,7 @@ async function runBacktest() {
     btn.disabled = false; btn.textContent = '▶ Correr Backtest';
     return;
   }
-  document.getElementById('chart-title').textContent = `Velas BTC ${tf.toUpperCase()} — ${days} días — SL ${slPct}% / TP ${tpPct}% — obligatorias ON — mín ${minScore}%`;
+  document.getElementById('chart-title').textContent = `Velas BTC ${tf.toUpperCase()} — ${days}d — SL ${slPct}% / TP ${tpPct}% — fee ${feePct}% — slip ${slippagePct}% — mín ${minScore}%`;
   updateStats(backtestTrades, capital, slPct, riskPct);
   renderTrades(backtestTrades);
   redrawChart();
