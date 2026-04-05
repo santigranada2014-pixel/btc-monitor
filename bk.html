@@ -159,7 +159,7 @@ canvas { width: 100% !important; display: block; }
   </div>
   <div class="ctrl-group" id="pct-risk-group" style="display:none">
     <label>Riesgo por trade %</label>
-    <input type="number" id="risk-pct" value="2" min="0.1" max="20" step="0.1">
+    <input type="number" id="risk-pct" value="2" min="0.1" max="100" step="0.1">
   </div>
   <div><button class="btn-run" id="run-btn" onclick="runBacktest()">▶ Correr Backtest</button></div>
   <span class="src-badge src-demo" id="src-badge">sin datos</span>
@@ -172,6 +172,8 @@ canvas { width: 100% !important; display: block; }
   <div class="stat"><div class="stat-label">Mejor trade</div><div class="stat-value col-g" id="s-best">—</div></div>
   <div class="stat"><div class="stat-label">Peor trade</div><div class="stat-value col-r" id="s-worst">—</div></div>
   <div class="stat"><div class="stat-label">Ratio R:R</div><div class="stat-value col-b" id="s-rr">—</div></div>
+  <div class="stat" id="s-lev-wrap" style="display:none"><div class="stat-label">Apalancamiento</div><div class="stat-value" id="s-lev">—</div></div>
+  <div class="stat" id="s-final-wrap" style="display:none"><div class="stat-label">Saldo final</div><div class="stat-value col-g" id="s-final">—</div></div>
 </div>
 
 <div class="card">
@@ -479,11 +481,12 @@ function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, startCapi
     const { longPct, shortPct, longMandatory, shortMandatory } = scoreCandle(candles, i, candles4h);
     const entryPrice = candles[i + 1].o;
     // Dynamic position sizing: if riskPct mode, capital = account * riskPct / slPct
-    // Capped at 100% of account to prevent unrealistic leverage
+    // Capped at 125x leverage (Binance BTC max)
     let capitalPerTrade;
     if (riskPct) {
       if (accountBalance <= 0) continue; // blown account, stop trading
-      capitalPerTrade = Math.min(accountBalance, accountBalance * (riskPct / 100) / (slPct / 100));
+      const raw = accountBalance * (riskPct / 100) / (slPct / 100);
+      capitalPerTrade = Math.min(raw, accountBalance * 125);
     } else {
       capitalPerTrade = startCapital;
     }
@@ -594,16 +597,18 @@ async function runBacktest() {
     return;
   }
   document.getElementById('chart-title').textContent = `Velas BTC ${tf.toUpperCase()} — ${days} días — SL ${slPct}% / TP ${tpPct}% — obligatorias ON — mín ${minScore}%`;
-  updateStats(backtestTrades, capital);
+  updateStats(backtestTrades, capital, slPct, riskPct);
   renderTrades(backtestTrades);
   redrawChart();
   drawEquity(backtestTrades, capital, riskPct);
   btn.disabled = false; btn.textContent = '▶ Correr Backtest';
 }
 
-function updateStats(trades) {
+function updateStats(trades, capital, slPct, riskPct) {
   if (!trades.length) {
     ['s-total','s-wr','s-pnl','s-best','s-worst','s-rr'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('s-lev-wrap').style.display = 'none';
+    document.getElementById('s-final-wrap').style.display = 'none';
     return;
   }
   // Compact formatter for large values
@@ -629,11 +634,27 @@ function updateStats(trades) {
   wrEl.textContent = wr + '%';
   wrEl.className = 'stat-value ' + (wr >= 50 ? 'col-g' : 'col-r');
   const pnlEl = document.getElementById('s-pnl');
-  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + '$' + fmtC(Math.abs(totalPnl));
+  pnlEl.textContent = (totalPnl >= 0 ? '+' : '-') + '$' + fmtC(Math.abs(totalPnl));
   pnlEl.className = 'stat-value ' + (totalPnl >= 0 ? 'col-g' : 'col-r');
   document.getElementById('s-best').textContent = '+$' + fmtC(best);
   document.getElementById('s-worst').textContent = '-$' + fmtC(Math.abs(worst));
   document.getElementById('s-rr').textContent = rr;
+
+  // Show leverage and final balance in % mode
+  if (riskPct) {
+    const lev = Math.min((riskPct / 100) / (slPct / 100), 125);
+    document.getElementById('s-lev').textContent = lev.toFixed(1) + 'x';
+    document.getElementById('s-lev').className = 'stat-value ' + (lev > 20 ? 'col-r' : lev > 5 ? 'col-b' : 'col-g');
+    document.getElementById('s-lev-wrap').style.display = '';
+    const finalBal = trades[trades.length - 1].balanceAfter;
+    const finalEl = document.getElementById('s-final');
+    finalEl.textContent = '$' + fmtC(finalBal);
+    finalEl.className = 'stat-value ' + (finalBal >= capital ? 'col-g' : 'col-r');
+    document.getElementById('s-final-wrap').style.display = '';
+  } else {
+    document.getElementById('s-lev-wrap').style.display = 'none';
+    document.getElementById('s-final-wrap').style.display = 'none';
+  }
 }
 
 // ── Chart ─────────────────────────────────────────────
