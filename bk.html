@@ -132,11 +132,11 @@ canvas { width: 100% !important; display: block; }
   </div>
   <div class="ctrl-group">
     <label>Stop Loss %</label>
-    <input type="number" id="sl" value="4" min="0.1" max="10" step="0.1">
+    <input type="number" id="sl" value="4" min="0.1" max="10" step="0.01">
   </div>
   <div class="ctrl-group">
     <label>Take Profit %</label>
-    <input type="number" id="tp" value="7" min="0.1" max="20" step="0.1">
+    <input type="number" id="tp" value="7" min="0.1" max="20" step="0.01">
   </div>
   <div class="ctrl-group">
     <label>Mín. condiciones %</label>
@@ -479,10 +479,14 @@ function runBacktestEngine(candles, candles4h, slPct, tpPct, minScore, startCapi
     const { longPct, shortPct, longMandatory, shortMandatory } = scoreCandle(candles, i, candles4h);
     const entryPrice = candles[i + 1].o;
     // Dynamic position sizing: if riskPct mode, capital = account * riskPct / slPct
-    // So that slPct loss = riskPct of account
-    const capitalPerTrade = riskPct
-      ? accountBalance * (riskPct / 100) / (slPct / 100)
-      : startCapital;
+    // Capped at 100% of account to prevent unrealistic leverage
+    let capitalPerTrade;
+    if (riskPct) {
+      if (accountBalance <= 0) continue; // blown account, stop trading
+      capitalPerTrade = Math.min(accountBalance, accountBalance * (riskPct / 100) / (slPct / 100));
+    } else {
+      capitalPerTrade = startCapital;
+    }
 
     let side = null, score = 0;
     // Estándar: just percentage. Estricto: mandatory S/R + candle required
@@ -602,6 +606,14 @@ function updateStats(trades) {
     ['s-total','s-wr','s-pnl','s-best','s-worst','s-rr'].forEach(id => document.getElementById(id).textContent = '—');
     return;
   }
+  // Compact formatter for large values
+  const fmtC = n => {
+    const a = Math.abs(n);
+    if (a >= 1e9) return (n/1e9).toFixed(1) + 'B';
+    if (a >= 1e6) return (n/1e6).toFixed(1) + 'M';
+    if (a >= 1e4) return (n/1e3).toFixed(1) + 'K';
+    return n.toFixed(0);
+  };
   const wins = trades.filter(t => t.result === 'TP').length;
   const wr = Math.round(wins / trades.length * 100);
   const totalPnl = trades.reduce((a, t) => a + t.pnlUSD, 0);
@@ -617,10 +629,10 @@ function updateStats(trades) {
   wrEl.textContent = wr + '%';
   wrEl.className = 'stat-value ' + (wr >= 50 ? 'col-g' : 'col-r');
   const pnlEl = document.getElementById('s-pnl');
-  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + '$' + Math.abs(totalPnl).toFixed(0);
+  pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + '$' + fmtC(Math.abs(totalPnl));
   pnlEl.className = 'stat-value ' + (totalPnl >= 0 ? 'col-g' : 'col-r');
-  document.getElementById('s-best').textContent = '+$' + best.toFixed(0);
-  document.getElementById('s-worst').textContent = '$' + worst.toFixed(0);
+  document.getElementById('s-best').textContent = '+$' + fmtC(best);
+  document.getElementById('s-worst').textContent = '-$' + fmtC(Math.abs(worst));
   document.getElementById('s-rr').textContent = rr;
 }
 
@@ -960,6 +972,8 @@ function drawEquity(trades, startCapital, riskPct) {
 }
 
 window.addEventListener('resize', () => redrawChart());
+// Sync capital mode on page load (browser may remember select value)
+toggleCapitalMode();
 </script>
 </body>
 </html>
