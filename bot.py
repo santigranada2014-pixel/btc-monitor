@@ -207,13 +207,13 @@ def check_and_alert():
         c1=fetch_candles(TF,100); c4=fetch_candles("4h",50)
     except Exception as e:
         print(f"[{now()}] Fetch error: {e}"); return
-    price=c1[-1]["c"]; lp,sp=score_candle(c1,c4)
+    price=c1[-1]["c"]; candle_time=c1[-1]["t"]; lp,sp=score_candle(c1,c4)
     print(f"[{now()}] BTC {fmt(price)} | LONG {lp}% | SHORT {sp}% | Umbral {MIN_SCORE}%")
     side=None
     if lp>=MIN_SCORE and lp>=sp: side,pct="LONG",lp
     elif sp>=MIN_SCORE: side,pct="SHORT",sp
     if not side: return
-    key=f"{side}-{round(price/200)}"
+    key=f"{side}-{candle_time}"
     if key==last_alert_key: return
     last_alert_key=key
     emoji="🟢" if side=="LONG" else "🔴"
