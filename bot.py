@@ -103,15 +103,64 @@ def score_candle(candles,candles4h):
     closes=[c["c"] for c in candles]; vols=[c["v"] for c in candles]
     ml,sig,hist=calc_macd(closes); i=len(closes)-1
     e14=ema(closes,14); e21=ema(closes,21)
+
+    # Auto S/R detection — unified levels
+    all_lvls=list(levels)+detect_sr_auto(candles)
+
+    # LONG: retest across last 3 candles
+    retest_sup=any(
+        (last["l"]<=p*1.005 and last["c"]>p*0.995) or
+        (prev["l"]<=p*1.005 and prev["c"]>p*0.995) or
+        (p2["l"]<=p*1.005 and p2["c"]>p*0.995)
+        for p in all_lvls)
+    near_sup=any(last["c"]>=p and last["c"]<=p*1.015 for p in all_lvls)
+    res_sup=near_sup or retest_sup
+    closed_above_lvl=any(prev["c"]>p and prev["c"]<=p*1.015 for p in all_lvls)
+
+    # SHORT: broken support acting as resistance
+    sup_broken=any(last["c"]<p for p in all_lvls)
+    broken_sup_retest=any(
+        (last["h"]>=p*0.997 and last["c"]<p) or
+        (prev["h"]>=p*0.997 and prev["c"]<p) or
+        (p2["h"]>=p*0.997 and p2["c"]<p)
+        for p in all_lvls)
+    closed_below_lvl=any(last["c"]<p for p in all_lvls)
+
+    # Trend 4H
     h4=candles4h[-8:]
     t_up=len(h4)>=2 and h4[-1]["c"]>h4[0]["c"] and h4[-1]["l"]>h4[0]["l"]
     t_dn=len(h4)>=2 and h4[-1]["c"]<h4[0]["c"] and h4[-1]["h"]<h4[0]["h"]
+
+    # Structure
     is_hl=last["l"]>p2["l"]; is_hh=last["h"]>prev["h"]
     is_lh=last["h"]<prev["h"]; is_ll=last["l"]<prev["l"]
-    bull=last["c"]>=last["o"]; bear=last["c"]<last["o"]
-    body=abs(last["c"]-last["o"]); rng=last["h"]-last["l"] or 1
-    lwk=min(last["c"],last["o"])-last["l"]; uwk=last["h"]-max(last["c"],last["o"])
-    hammer=lwk>body*1.5 and bull; star=uwk>body*1.5 and bear
+
+    # Candle vars for last, prev, p2
+    body=abs(last["c"]-last["o"]) or 1
+    lwk=min(last["c"],last["o"])-last["l"]
+    uwk=last["h"]-max(last["c"],last["o"])
+    pbody=abs(prev["c"]-prev["o"]) or 1
+    plwk=min(prev["c"],prev["o"])-prev["l"]
+    puwk=prev["h"]-max(prev["c"],prev["o"])
+    p2body=abs(p2["c"]-p2["o"]) or 1
+    p2lwk=min(p2["c"],p2["o"])-p2["l"]
+    p2uwk=p2["h"]-max(p2["c"],p2["o"])
+
+    # Hammer: long lower wick near level (any direction, 3 candles)
+    hammer=any(
+        (lwk>body*1.2 and last["l"]<=p*1.01 and last["c"]>=p*0.995) or
+        (plwk>pbody*1.2 and prev["l"]<=p*1.01 and prev["c"]>=p*0.995) or
+        (p2lwk>p2body*1.2 and p2["l"]<=p*1.01 and p2["c"]>=p*0.995)
+        for p in all_lvls)
+
+    # Star: long upper wick near level, closed below (3 candles)
+    star=any(
+        (uwk>body*1.2 and last["h"]>=p*0.995 and last["c"]<p) or
+        (puwk>pbody*1.2 and prev["h"]>=p*0.995 and prev["c"]<p) or
+        (p2uwk>p2body*1.2 and p2["h"]>=p*0.995 and p2["c"]<p)
+        for p in all_lvls)
+
+    # EMAs
     e14v=e14[i]; e21v=e21[i]
     above_ema=bool(e14v and e21v and last["c"]>e14v and last["c"]>e21v)
     below_ema=bool(e14v and e21v and last["c"]<e14v and last["c"]<e21v)
@@ -119,23 +168,30 @@ def score_candle(candles,candles4h):
     sl14d=bool(e14[i] and e14[i-3] and e14[i]<e14[i-3])
     sl21u=bool(e21[i] and e21[i-3] and e21[i]>e21[i-3])
     sl21d=bool(e21[i] and e21[i-3] and e21[i]<e21[i-3])
+
+    # MACD
     hg=hist[i] is not None and hist[i]>0
     hgrow=hist[i] is not None and hist[i-1] is not None and hist[i]>hist[i-1]
     hr=hist[i] is not None and hist[i]<0
     hrgrow=hist[i] is not None and hist[i-1] is not None and hist[i]<hist[i-1]
     hmb=hr and hrgrow and hist[i-1] is not None and abs(hist[i])>abs(hist[i-1])
+
+    # Volume: last 3 candles — check candle direction
     avg_vol=sum(vols[-50:])/min(len(vols),50)
     rv=vols[-3:]; rs=candles[-3:]
-    vs=any(v>avg_vol*1.2 for v in rv)
-    vsb=any(c["c"]<c["o"] and rv[idx]>avg_vol*1.2 for idx,c in enumerate(rs))
-    all_lvls=list(levels)+detect_sr_auto(candles); price=last["c"]
-    ca=min([p for p in all_lvls if price>=p*0.992],key=lambda p:abs(p-price),default=None)
-    cb=min([p for p in all_lvls if price<p],key=lambda p:abs(p-price),default=None)
-    rs2=bool(ca and abs(ca-price)/price<0.008); rts=bool(ca and last["l"]<=ca*1.003 and last["c"]>ca)
-    sb=bool(cb); rr=bool(cb and (cb-price)/cb<0.015)
-    cab=bool(rs2 and ca and last["c"]>ca); cbl=bool(cb and last["c"]<cb)
-    li=[is_hl,is_hh or t_up,rs2 or rts,rts,bool(all_lvls),hammer,cab,above_ema,sl14u and sl21u,hg,hgrow,vs]
-    si2=[is_lh,is_ll or t_dn,sb or rr,rr,bool(all_lvls),star,cbl,below_ema,sl14d and sl21d,hr and hrgrow,hmb,vsb]
+    vs_bull=any(c["c"]>=c["o"] and rv[idx]>avg_vol*1.2 for idx,c in enumerate(rs))
+    vs_bear=any(c["c"]<c["o"] and rv[idx]>avg_vol*1.2 for idx,c in enumerate(rs))
+
+    li=[is_hl, is_hh or t_up,
+        res_sup, retest_sup, bool(all_lvls),
+        hammer, closed_above_lvl,
+        above_ema, sl14u and sl21u,
+        hg, hgrow, vs_bull]
+    si2=[is_lh, is_ll or t_dn,
+         sup_broken, broken_sup_retest, bool(all_lvls),
+         star, closed_below_lvl,
+         below_ema, sl14d and sl21d,
+         hr and hrgrow, hmb, vs_bear]
     return round(sum(li)/len(li)*100),round(sum(si2)/len(si2)*100)
 
 def handle_commands():
